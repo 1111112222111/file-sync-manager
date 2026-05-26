@@ -1,0 +1,2357 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件自动同步管理器 - UI 原型 (PROTOTYPE — throwaway)</title>
+<!--
+  PROTOTYPE — Throwaway Code
+  问题: 文件自动同步管理器的 7 个核心流程的 UI 交互是否合理？
+  变体: 单一完整原型，可在侧边栏切换 6 个页面 + 主题切换 + 冲突弹窗
+  运行: 直接在浏览器中打开此文件即可
+-->
+<link rel="stylesheet" href="../styles/tokens.css">
+<style>
+/* ================================================================
+   PROTOTYPE LAYOUT STYLES — 所有视觉属性引用 tokens.css CSS Variables
+   零硬编码色值/间距/圆角
+   ================================================================ */
+
+/* ---- App Shell ---- */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ---- Sidebar ---- */
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100vh;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  z-index: var(--z-sticky);
+  overflow-y: auto;
+}
+
+.sidebar-brand {
+  padding: var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.sidebar-brand h1 {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  line-height: var(--leading-tight);
+}
+
+.sidebar-brand span {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-weight: var(--font-normal);
+  margin-top: var(--space-1);
+}
+
+/* ---- Nav ---- */
+.sidebar-nav {
+  flex: 1;
+  padding: var(--space-3) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-sans);
+}
+
+.nav-item:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.nav-item.active {
+  background: var(--accent-primary-muted);
+  color: var(--accent-primary);
+}
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-base);
+  opacity: 0.7;
+}
+
+.nav-item.active .nav-icon {
+  opacity: 1;
+}
+
+/* ---- Sidebar Footer / Theme Toggle ---- */
+.sidebar-footer {
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.theme-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-toggle-label {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: var(--font-medium);
+}
+
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-active);
+  border-radius: var(--radius-full);
+  transition: background-color var(--duration-fast) var(--ease-default);
+  border: 1px solid var(--border-default);
+}
+
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background: var(--bg-elevated);
+  border-radius: 50%;
+  transition: transform var(--duration-fast) var(--ease-spring);
+  box-shadow: var(--shadow-sm);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(18px);
+}
+
+.toggle-switch input:focus-visible + .toggle-slider {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+/* ---- Main Content ---- */
+.main-content {
+  flex: 1;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--bg-primary);
+}
+
+/* ---- Page Visibility ---- */
+.page {
+  display: none;
+  padding: var(--space-8);
+  height: 100%;
+}
+
+.page.active {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---- Page Header ---- */
+.page-header {
+  margin-bottom: var(--space-6);
+}
+
+.page-header h2 {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  line-height: var(--leading-tight);
+}
+
+.page-header p {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin-top: var(--space-1);
+}
+
+/* ---- Card / Panel ---- */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--card-radius);
+  padding: var(--card-padding);
+  box-shadow: var(--shadow-card);
+}
+
+.card-header {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---- Drop Zone ---- */
+.dropzone-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--dropzone-min-height);
+  padding: var(--dropzone-padding);
+  border: var(--dropzone-border-width) dashed var(--border-default);
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
+  transition:
+    border-color var(--duration-normal) var(--ease-default),
+    background-color var(--duration-normal) var(--ease-default),
+    transform var(--duration-normal) var(--ease-default),
+    box-shadow var(--duration-normal) var(--ease-default);
+  cursor: pointer;
+  position: relative;
+}
+
+.dropzone:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-hover);
+}
+
+.dropzone.drag-over {
+  border-color: var(--accent-primary);
+  border-style: solid;
+  background: var(--accent-primary-muted);
+  transform: scale(1.01);
+  box-shadow: var(--accent-glow);
+}
+
+.dropzone-icon {
+  width: 56px;
+  height: 56px;
+  margin-bottom: var(--space-4);
+  color: var(--text-tertiary);
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+.dropzone.drag-over .dropzone-icon {
+  color: var(--accent-primary);
+}
+
+.dropzone-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-1);
+}
+
+.dropzone-hint {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin-top: var(--space-2);
+}
+
+.dropzone-unauthorized {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  color: var(--text-secondary);
+}
+
+/* ---- Uploaded Files List ---- */
+.uploaded-files {
+  margin-top: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.uploaded-files-header {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+}
+
+/* ---- Task Item / Transfer Item ---- */
+.task-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  transition: border-color var(--duration-fast) var(--ease-default);
+}
+
+.task-item:hover {
+  border-color: var(--border-default);
+}
+
+.task-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-filename {
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-meta {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+/* ---- Progress Bar ---- */
+.progress-bar {
+  width: 100%;
+  height: var(--progress-height);
+  background: var(--bg-active);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-top: var(--space-2);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width var(--duration-slow) var(--ease-out);
+  position: relative;
+}
+
+.progress-fill.status-info {
+  background: var(--status-info);
+}
+
+.progress-fill.status-success {
+  background: var(--status-success);
+}
+
+.progress-fill.status-error {
+  background: var(--status-error);
+}
+
+.progress-fill.status-paused {
+  background: var(--status-paused);
+}
+
+/* Progress bar shimmer animation */
+@keyframes progress-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.progress-fill.transferring {
+  background: linear-gradient(
+    90deg,
+    var(--status-info) 0%,
+    var(--accent-primary) 50%,
+    var(--status-info) 100%
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2s ease-in-out infinite;
+}
+
+/* ---- Status Badges ---- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.badge-transferring {
+  color: var(--status-info);
+  background: var(--status-info-bg);
+  border: 1px solid var(--status-info-border);
+}
+
+.badge-pending {
+  color: var(--status-pending);
+  background: var(--status-pending-bg);
+  border: 1px solid var(--status-pending-border);
+}
+
+.badge-completed {
+  color: var(--status-success);
+  background: var(--status-success-bg);
+  border: 1px solid var(--status-success-border);
+}
+
+.badge-failed {
+  color: var(--status-error);
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error-border);
+}
+
+.badge-paused {
+  color: var(--status-paused);
+  background: var(--status-paused-bg);
+  border: 1px solid var(--status-paused-border);
+}
+
+.badge-active {
+  color: var(--status-success);
+  background: var(--status-success-bg);
+  border: 1px solid var(--status-success-border);
+}
+
+.badge-error {
+  color: var(--status-error);
+  background: var(--status-error-bg);
+  border: 1px solid var(--status-error-border);
+}
+
+.badge-upload {
+  color: var(--status-info);
+  background: var(--status-info-bg);
+  border: 1px solid var(--status-info-border);
+}
+
+.badge-download {
+  color: var(--accent-secondary);
+  background: var(--status-pending-bg);
+  border: 1px solid var(--status-pending-border);
+}
+
+/* ---- Task Actions ---- */
+.task-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--btn-height-md);
+  padding: 0 var(--btn-padding-x-md);
+  border-radius: var(--radius-md);
+  font-size: var(--btn-font-size-md);
+  font-weight: var(--font-medium);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: var(--btn-transition);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent-gradient);
+  color: #fff;
+  border-color: transparent;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-gradient-hover);
+  box-shadow: var(--accent-glow);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+.btn-danger {
+  background: var(--status-error);
+  color: #fff;
+  border-color: transparent;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--status-error-hover);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+  padding: 0 var(--space-2);
+  height: 28px;
+  font-size: var(--text-sm);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.btn-sm {
+  height: var(--btn-height-sm);
+  padding: 0 var(--btn-padding-x-sm);
+  font-size: var(--btn-font-size-sm);
+}
+
+.btn-icon {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.btn-icon:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* ---- Table ---- */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th {
+  height: var(--table-header-height);
+  padding: 0 var(--table-cell-padding-x);
+  text-align: left;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.data-table td {
+  height: var(--table-row-height);
+  padding: 0 var(--table-cell-padding-x);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.data-table tbody tr {
+  transition: background-color var(--duration-fast) var(--ease-default);
+}
+
+.data-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.data-table .col-filename {
+  min-width: 200px;
+}
+
+.data-table .col-size {
+  width: 100px;
+  text-align: right;
+}
+
+.data-table .col-time {
+  width: 160px;
+}
+
+.data-table .col-actions {
+  width: 100px;
+  text-align: center;
+}
+
+.data-table .col-direction {
+  width: 60px;
+}
+
+.data-table .col-status {
+  width: 80px;
+}
+
+/* ---- Watch Source ---- */
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.source-item {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.source-item:hover {
+  border-color: var(--border-default);
+}
+
+.source-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.source-path {
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-meta {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+/* ---- Settings ---- */
+.settings-section {
+  margin-bottom: var(--space-8);
+}
+
+.settings-section-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) 0;
+  gap: var(--space-4);
+}
+
+.setting-row + .setting-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.setting-label {
+  flex: 1;
+}
+
+.setting-label-title {
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+}
+
+.setting-label-desc {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin-top: var(--space-1);
+}
+
+.setting-control {
+  flex-shrink: 0;
+}
+
+/* ---- Form Controls ---- */
+.form-input {
+  height: var(--input-height);
+  padding: 0 var(--input-padding-x);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  transition: var(--input-transition);
+  width: 280px;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-primary-muted);
+}
+
+.form-input::placeholder {
+  color: var(--text-disabled);
+}
+
+.form-select {
+  height: var(--input-height);
+  padding: 0 var(--space-8) 0 var(--input-padding-x);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  min-width: 180px;
+  transition: var(--input-transition);
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-primary-muted);
+}
+
+/* ---- Filter Rules ---- */
+.filter-rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.filter-rule-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-hover);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.filter-rule-item .rule-pattern {
+  flex: 1;
+}
+
+.filter-add-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* ---- Auth Status ---- */
+.auth-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.auth-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.auth-indicator.connected {
+  background: var(--status-success);
+  box-shadow: 0 0 6px var(--status-success);
+}
+
+.auth-indicator.disconnected {
+  background: var(--status-error);
+  box-shadow: 0 0 6px var(--status-error);
+}
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--surface-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal-backdrop);
+  animation: modal-fade-in var(--duration-modal) var(--ease-out);
+  backdrop-filter: blur(4px);
+}
+
+.modal-overlay.hidden {
+  display: none;
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  width: var(--modal-width-lg);
+  max-width: 90vw;
+  max-height: 85vh;
+  overflow-y: auto;
+  z-index: var(--z-modal);
+  animation: modal-scale-in var(--duration-modal) var(--ease-spring);
+}
+
+@keyframes modal-scale-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+  padding: var(--space-5) var(--space-6);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-header h3 {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+}
+
+.modal-body {
+  padding: var(--space-6);
+}
+
+.modal-footer {
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* ---- Conflict Compare Table ---- */
+.conflict-compare {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-4);
+}
+
+.conflict-compare th {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-secondary);
+}
+
+.conflict-compare th:first-child {
+  border-radius: var(--radius-sm) 0 0 0;
+}
+
+.conflict-compare th:last-child {
+  border-radius: 0 var(--radius-sm) 0 0;
+}
+
+.conflict-compare td {
+  padding: var(--space-3);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.conflict-compare .col-label {
+  font-weight: var(--font-semibold);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  width: 80px;
+}
+
+.conflict-compare .highlight {
+  color: var(--status-warning);
+  font-weight: var(--font-semibold);
+}
+
+/* ---- Toast Notification ---- */
+.toast-container {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  z-index: var(--z-notification);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  font-size: var(--text-base);
+  font-weight: var(--font-medium);
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-dropdown);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  animation: toast-slide-in var(--duration-slow) var(--ease-spring);
+  transition: all var(--duration-normal) var(--ease-default);
+  max-width: 360px;
+}
+
+.toast.removing {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateX(100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.toast-success { border-left: 3px solid var(--status-success); }
+.toast-error { border-left: 3px solid var(--status-error); }
+.toast-info { border-left: 3px solid var(--status-info); }
+
+/* ---- Transfer Stats Bar ---- */
+.transfer-stats {
+  display: flex;
+  gap: var(--space-6);
+  margin-bottom: var(--space-4);
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.stat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.stat-dot.active-dot { background: var(--status-info); }
+.stat-dot.completed-dot { background: var(--status-success); }
+.stat-dot.failed-dot { background: var(--status-error); }
+
+.stat-value {
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+}
+
+.stat-label {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+/* ---- Empty State ---- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-16) var(--space-8);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+
+.empty-state-icon {
+  font-size: 48px;
+  margin-bottom: var(--space-4);
+  opacity: 0.5;
+}
+
+.empty-state-title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-medium);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1);
+}
+
+.empty-state-desc {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+}
+
+/* ---- Page Content Scrollable ---- */
+.page-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* ---- Prototype Banner ---- */
+.prototype-banner {
+  background: var(--accent-primary-muted);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-6);
+  font-size: var(--text-xs);
+  color: var(--accent-primary);
+  font-weight: var(--font-medium);
+  text-align: center;
+}
+
+/* ---- Drag file preview ---- */
+.dropzone-file-preview {
+  display: none;
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: var(--bg-hover);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.dropzone.drag-over .dropzone-file-preview {
+  display: block;
+}
+
+/* ---- Scrollbar for main ---- */
+.main-content::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--radius-full);
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .sidebar {
+    width: var(--sidebar-collapsed-width);
+    min-width: var(--sidebar-collapsed-width);
+  }
+  .sidebar-brand h1,
+  .sidebar-brand span,
+  .nav-item span:not(.nav-icon),
+  .theme-toggle-label {
+    display: none;
+  }
+  .page {
+    padding: var(--space-4);
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ============================================================ -->
+  <!-- SIDEBAR                                                       -->
+  <!-- ============================================================ -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <h1>文件自动同步</h1>
+      <span>百度网盘备份工具</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-page="dropzone" onclick="switchPage('dropzone')">
+        <span class="nav-icon">&#8593;</span>
+        <span>拖拽上传</span>
+      </button>
+      <button class="nav-item" data-page="transfer" onclick="switchPage('transfer')">
+        <span class="nav-icon">&#9776;</span>
+        <span>传输面板</span>
+      </button>
+      <button class="nav-item" data-page="cloud" onclick="switchPage('cloud')">
+        <span class="nav-icon">&#9729;</span>
+        <span>云端文件</span>
+      </button>
+      <button class="nav-item" data-page="watch" onclick="switchPage('watch')">
+        <span class="nav-icon">&#9673;</span>
+        <span>监听源</span>
+      </button>
+      <button class="nav-item" data-page="settings" onclick="switchPage('settings')">
+        <span class="nav-icon">&#9881;</span>
+        <span>设置</span>
+      </button>
+      <button class="nav-item" data-page="history" onclick="switchPage('history')">
+        <span class="nav-icon">&#128337;</span>
+        <span>历史记录</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="theme-toggle-row">
+        <span class="theme-toggle-label">深色主题</span>
+        <label class="toggle-switch" title="切换深浅主题">
+          <input type="checkbox" id="themeToggle" checked onchange="toggleTheme()">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============================================================ -->
+  <!-- MAIN CONTENT                                                  -->
+  <!-- ============================================================ -->
+  <main class="main-content">
+
+    <!-- Prototype Banner -->
+    <div class="prototype-banner" style="margin: var(--space-4) var(--space-8) 0;">
+      PROTOTYPE -- 模拟数据，仅用于交互验证。所有样式引用 tokens.css CSS Variables。
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- PAGE 1: 拖拽上传 (DropZone)                                -->
+    <!-- ======================================================== -->
+    <section id="page-dropzone" class="page active">
+      <div class="page-header">
+        <h2>拖拽上传</h2>
+        <p>将文件拖拽到下方区域，自动上传到百度网盘。支持多文件同时拖拽。</p>
+      </div>
+
+      <div class="dropzone-container">
+        <div class="dropzone" id="dropzone">
+          <svg class="dropzone-icon" viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M28 38V14M18 24l10-10 10 10"/>
+            <path d="M10 34v6a4 4 0 004 4h28a4 4 0 004-4v-6"/>
+          </svg>
+          <div class="dropzone-title">拖拽文件到此处上传</div>
+          <div class="dropzone-hint">支持任意文件类型，单文件最大 500MB</div>
+          <div class="dropzone-file-preview" id="dropPreview">
+            已选择 <span id="dropFileCount">0</span> 个文件，释放鼠标以上传
+          </div>
+        </div>
+
+        <div class="uploaded-files" id="dropzoneTaskList">
+          <div class="uploaded-files-header" id="dropzoneTaskHeader" style="display:none;">
+            上传任务 (<span id="dropzoneTaskCount">0</span>)
+          </div>
+          <!-- Dynamically filled -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- PAGE 2: 传输面板 (TransferPanel)                           -->
+    <!-- ======================================================== -->
+    <section id="page-transfer" class="page">
+      <div class="page-header">
+        <h2>传输面板</h2>
+        <p>统一管理所有上传/下载任务，支持暂停、恢复和取消操作。</p>
+      </div>
+
+      <div class="transfer-stats" id="transferStats">
+        <div class="stat-item">
+          <span class="stat-dot active-dot"></span>
+          <div>
+            <div class="stat-value" id="statActive">0</div>
+            <div class="stat-label">进行中</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-dot completed-dot"></span>
+          <div>
+            <div class="stat-value" id="statCompleted">0</div>
+            <div class="stat-label">已完成</div>
+          </div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-dot failed-dot"></span>
+          <div>
+            <div class="stat-value" id="statFailed">0</div>
+            <div class="stat-label">失败</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-scroll" id="transferTaskList">
+        <!-- Dynamically filled -->
+        <div class="empty-state" id="transferEmpty">
+          <div class="empty-state-icon">&#9776;</div>
+          <div class="empty-state-title">暂无传输任务</div>
+          <div class="empty-state-desc">在拖拽上传页面添加文件，或从云端文件页面下载文件</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- PAGE 3: 云端文件浏览 (CloudBrowser)                        -->
+    <!-- ======================================================== -->
+    <section id="page-cloud" class="page">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <h2>云端文件</h2>
+          <p>浏览百度网盘中的文件，支持下载到本地。</p>
+        </div>
+        <div class="btn btn-secondary btn-sm" onclick="refreshCloudFiles()">
+          &#8635; 刷新
+        </div>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--border-subtle);font-size:var(--text-sm);color:var(--text-tertiary);">
+          路径: <span style="color:var(--text-primary);font-family:var(--font-mono);">/我的同步文件/</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="data-table" id="cloudFileTable">
+            <thead>
+              <tr>
+                <th class="col-filename">文件名</th>
+                <th class="col-size">大小</th>
+                <th class="col-time">修改时间</th>
+                <th class="col-actions">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dynamically filled -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- PAGE 4: 监听源管理 (WatchSourcePanel)                      -->
+    <!-- ======================================================== -->
+    <section id="page-watch" class="page">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <h2>监听源管理</h2>
+          <p>注册本地文件夹为监听源，文件变更时自动上传到云端备份。</p>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="addWatchSource()">
+          + 添加监听源
+        </button>
+      </div>
+
+      <div class="source-list" id="watchSourceList">
+        <!-- Dynamically filled -->
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- PAGE 5: 设置 (SettingsPage)                                -->
+    <!-- ======================================================== -->
+    <section id="page-settings" class="page">
+      <div class="page-header">
+        <h2>设置</h2>
+        <p>管理网盘授权、同步配置和通知偏好。</p>
+      </div>
+
+      <div class="page-scroll">
+
+        <!-- 网盘授权 -->
+        <div class="settings-section">
+          <div class="settings-section-title">网盘授权</div>
+          <div class="card">
+            <div class="setting-row" style="border:none;">
+              <div class="setting-label">
+                <div class="setting-label-title">百度网盘授权状态</div>
+                <div class="setting-label-desc" id="authDesc">已授权，Token 有效期至 2026-07-25</div>
+              </div>
+              <div class="setting-control">
+                <div class="auth-status">
+                  <span class="auth-indicator connected" id="authIndicator"></span>
+                  <span style="font-size:var(--text-sm);color:var(--status-success);font-weight:var(--font-medium);">已连接</span>
+                </div>
+              </div>
+            </div>
+            <div class="setting-row">
+              <div class="setting-label">
+                <div class="setting-label-title">重新授权</div>
+                <div class="setting-label-desc">如果授权过期或需要更换账号，请重新授权</div>
+              </div>
+              <div class="setting-control">
+                <button class="btn btn-secondary btn-sm" onclick="simulateReauth()">重新授权</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 云端路径 -->
+        <div class="settings-section">
+          <div class="settings-section-title">云端路径</div>
+          <div class="card">
+            <div class="setting-row" style="border:none;">
+              <div class="setting-label">
+                <div class="setting-label-title">云端根目录</div>
+                <div class="setting-label-desc">所有同步文件的云端存储根路径</div>
+              </div>
+              <div class="setting-control">
+                <input type="text" class="form-input" value="/我的同步文件/" id="rootPathInput"
+                  style="font-family:var(--font-mono);">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 通知 -->
+        <div class="settings-section">
+          <div class="settings-section-title">通知</div>
+          <div class="card">
+            <div class="setting-row" style="border:none;">
+              <div class="setting-label">
+                <div class="setting-label-title">通知级别</div>
+                <div class="setting-label-desc">控制桌面通知的详细程度</div>
+              </div>
+              <div class="setting-control">
+                <select class="form-select" id="notificationLevel">
+                  <option value="all">全部通知</option>
+                  <option value="error_only">仅错误和冲突</option>
+                  <option value="off">关闭</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 过滤规则 -->
+        <div class="settings-section">
+          <div class="settings-section-title">过滤规则</div>
+          <div class="card">
+            <p style="font-size:var(--text-sm);color:var(--text-tertiary);margin-bottom:var(--space-3);">
+              匹配以下规则的文件/文件夹不会被自动同步。支持通配符（* 和 ?）。
+            </p>
+            <div class="filter-rule-list" id="filterRuleList">
+              <!-- Dynamically filled -->
+            </div>
+            <div class="filter-add-row">
+              <input type="text" class="form-input" id="newFilterRule" placeholder="例如: *.tmp, node_modules/"
+                style="flex:1;">
+              <button class="btn btn-primary btn-sm" onclick="addFilterRule()">添加</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 开机自启 -->
+        <div class="settings-section">
+          <div class="settings-section-title">系统</div>
+          <div class="card">
+            <div class="setting-row" style="border:none;">
+              <div class="setting-label">
+                <div class="setting-label-title">开机自动启动</div>
+                <div class="setting-label-desc">系统启动时自动运行文件自动同步管理器</div>
+              </div>
+              <div class="setting-control">
+                <label class="toggle-switch">
+                  <input type="checkbox" id="autoLaunchToggle" checked onchange="toggleAutoLaunch()">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- About -->
+        <div class="settings-section">
+          <div class="settings-section-title">关于</div>
+          <div class="card">
+            <div class="setting-row" style="border:none;">
+              <div class="setting-label">
+                <div class="setting-label-title">文件自动同步管理器</div>
+                <div class="setting-label-desc">版本 v1.0.0-beta | Electron + React + TypeScript</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- PAGE 6: 历史记录 (History)                                  -->
+    <!-- ======================================================== -->
+    <section id="page-history" class="page">
+      <div class="page-header">
+        <h2>历史记录</h2>
+        <p>查看最近的传输记录，追溯同步活动。</p>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="overflow-x:auto;">
+          <table class="data-table" id="historyTable">
+            <thead>
+              <tr>
+                <th class="col-filename">文件名</th>
+                <th class="col-size">大小</th>
+                <th class="col-direction">方向</th>
+                <th class="col-status">状态</th>
+                <th class="col-time">时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Dynamically filled -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============================================================ -->
+<!-- CONFLICT DIALOG MODAL                                         -->
+<!-- ============================================================ -->
+<div class="modal-overlay hidden" id="conflictModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>&#9888; 文件冲突</h3>
+      <button class="btn-icon" onclick="closeConflictDialog()" title="关闭">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:var(--text-base);color:var(--text-secondary);margin-bottom:var(--space-4);">
+        云端已存在同名文件，且云端版本比本地版本更新。请选择处理方式：
+      </p>
+
+      <table class="conflict-compare">
+        <thead>
+          <tr>
+            <th></th>
+            <th>本地文件</th>
+            <th>云端文件</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="col-label">文件名</td>
+            <td id="conflictLocalName">-</td>
+            <td id="conflictCloudName">-</td>
+          </tr>
+          <tr>
+            <td class="col-label">大小</td>
+            <td id="conflictLocalSize">-</td>
+            <td id="conflictCloudSize">-</td>
+          </tr>
+          <tr>
+            <td class="col-label">修改时间</td>
+            <td id="conflictLocalTime">-</td>
+            <td class="highlight" id="conflictCloudTime">-</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-3);">
+        <button class="btn btn-primary" onclick="resolveConflict('keep_local')" style="justify-content:flex-start;text-align:left;padding:var(--space-3) var(--space-4);height:auto;">
+          <span style="display:block;">
+            <strong>保留本地版本</strong> (上传覆盖云端)
+            <br><span style="font-size:var(--text-sm);color:var(--text-secondary);font-weight:var(--font-normal);">使用本地文件覆盖云端文件，云端的更新版本将丢失</span>
+          </span>
+        </button>
+        <button class="btn btn-secondary" onclick="resolveConflict('keep_cloud')" style="justify-content:flex-start;text-align:left;padding:var(--space-3) var(--space-4);height:auto;">
+          <span style="display:block;">
+            <strong>保留云端版本</strong> (跳过上传)
+            <br><span style="font-size:var(--text-sm);color:var(--text-tertiary);font-weight:var(--font-normal);">不上传本地文件，保留云端更新版本不变</span>
+          </span>
+        </button>
+        <button class="btn btn-secondary" onclick="resolveConflict('keep_both')" style="justify-content:flex-start;text-align:left;padding:var(--space-3) var(--space-4);height:auto;">
+          <span style="display:block;">
+            <strong>保留两份</strong> (重命名后上传)
+            <br><span style="font-size:var(--text-sm);color:var(--text-tertiary);font-weight:var(--font-normal);">本地文件以新名称上传，两个版本都保留</span>
+          </span>
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeConflictDialog()">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- TOAST NOTIFICATIONS                                           -->
+<!-- ============================================================ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ============================================================ -->
+<!-- JAVASCRIPT — PROTOTYPE INTERACTIONS                          -->
+<!-- ============================================================ -->
+<script>
+/* ================================================================
+   PROTOTYPE STATE & LOGIC
+   All interactions use mock data. No backend, no persistence.
+   ================================================================ */
+
+// ---- Globals ----
+let taskIdCounter = 0;
+const allTransfers = []; // Shared across pages
+
+// ---- Mock Data ----
+const mockCloudFiles = [
+  { name: '项目文档.docx', size: '2.4 MB', mtime: '2026-05-25 14:30', rawMtime: new Date('2026-05-25T14:30:00') },
+  { name: '设计稿.fig', size: '15.8 MB', mtime: '2026-05-24 09:15', rawMtime: new Date('2026-05-24T09:15:00') },
+  { name: '会议纪要.pdf', size: '856 KB', mtime: '2026-05-23 16:45', rawMtime: new Date('2026-05-23T16:45:00') },
+  { name: '代码备份.zip', size: '45.2 MB', mtime: '2026-05-22 11:20', rawMtime: new Date('2026-05-22T11:20:00') },
+  { name: '周报.xlsx', size: '128 KB', mtime: '2026-05-21 17:00', rawMtime: new Date('2026-05-21T17:00:00') },
+  { name: '产品截图.png', size: '3.1 MB', mtime: '2026-05-20 10:30', rawMtime: new Date('2026-05-20T10:30:00') },
+  { name: '年终总结.pptx', size: '8.7 MB', mtime: '2026-05-19 08:45', rawMtime: new Date('2026-05-19T08:45:00') },
+  { name: '用户手册.pdf', size: '1.2 MB', mtime: '2026-05-18 15:20', rawMtime: new Date('2026-05-18T15:20:00') },
+];
+
+const mockWatchSources = [
+  { id: 1, localPath: 'C:\\Users\\GAOMON\\Documents\\Projects', remoteDir: '/我的同步文件/Projects', status: 'active', filterCount: 3 },
+  { id: 2, localPath: 'D:\\Backup\\Photos', remoteDir: '/我的同步文件/Photos', status: 'active', filterCount: 2 },
+  { id: 3, localPath: 'E:\\Work\\Reports', remoteDir: '/我的同步文件/Reports', status: 'error', filterCount: 1, errorMsg: '路径不可访问' },
+];
+
+let mockFilterRules = ['*.tmp', 'node_modules/', '.git/', '*.log', '~$*'];
+
+const mockHistory = [
+  { name: '项目文档.docx', size: '2.4 MB', direction: 'upload', status: 'completed', time: '2026-05-26 10:30' },
+  { name: '设计稿.fig', size: '15.8 MB', direction: 'upload', status: 'completed', time: '2026-05-26 10:28' },
+  { name: '会议纪要.pdf', size: '856 KB', direction: 'download', status: 'completed', time: '2026-05-26 09:15' },
+  { name: '周报.xlsx', size: '128 KB', direction: 'upload', status: 'failed', time: '2026-05-26 09:00' },
+  { name: 'backup.zip', size: '45.2 MB', direction: 'download', status: 'completed', time: '2026-05-25 18:30' },
+  { name: '产品截图.png', size: '3.1 MB', direction: 'upload', status: 'completed', time: '2026-05-25 16:45' },
+  { name: 'notes.txt', size: '12 KB', direction: 'upload', status: 'completed', time: '2026-05-25 14:20' },
+  { name: 'archive.rar', size: '220 MB', direction: 'upload', status: 'failed', time: '2026-05-25 11:00' },
+];
+
+// ---- Pending conflict data (set before opening modal) ----
+let pendingConflict = null;
+
+// ================================================================
+// NAVIGATION
+// ================================================================
+
+function switchPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const page = document.getElementById('page-' + pageId);
+  if (page) page.classList.add('active');
+
+  const navItem = document.querySelector(`.nav-item[data-page="${pageId}"]`);
+  if (navItem) navItem.classList.add('active');
+
+  // Refresh dynamic content
+  if (pageId === 'transfer') renderTransferPanel();
+  if (pageId === 'cloud') renderCloudFiles();
+  if (pageId === 'watch') renderWatchSources();
+  if (pageId === 'settings') renderSettings();
+  if (pageId === 'history') renderHistory();
+}
+
+// ================================================================
+// THEME TOGGLE
+// ================================================================
+
+function toggleTheme() {
+  const isDark = document.getElementById('themeToggle').checked;
+  document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+  const label = document.querySelector('.theme-toggle-label');
+  if (label) label.textContent = isDark ? '深色主题' : '浅色主题';
+  showToast(isDark ? '已切换到深色主题' : '已切换到浅色主题', 'info');
+}
+
+// ================================================================
+// DRAG AND DROP
+// ================================================================
+
+(function setupDragDrop() {
+  const dropzone = document.getElementById('dropzone');
+  if (!dropzone) return;
+
+  let dragCounter = 0;
+
+  dropzone.addEventListener('dragenter', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter++;
+    dropzone.classList.add('drag-over');
+  });
+
+  dropzone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter--;
+    if (dragCounter <= 0) {
+      dragCounter = 0;
+      dropzone.classList.remove('drag-over');
+      document.getElementById('dropFileCount').textContent = '0';
+    }
+  });
+
+  dropzone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer && e.dataTransfer.files) {
+      document.getElementById('dropFileCount').textContent = e.dataTransfer.files.length;
+    }
+  });
+
+  dropzone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter = 0;
+    dropzone.classList.remove('drag-over');
+
+    const files = e.dataTransfer ? e.dataTransfer.files : null;
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        processUpload(files[i].name, formatFileSize(files[i].size));
+      }
+    } else {
+      // No real files (e.g. testing without actual files), simulate one
+      processUpload('演示文件_' + (taskIdCounter + 1) + '.txt', '1.5 MB');
+    }
+  });
+
+  // Allow click to simulate upload as well (for testing)
+  dropzone.addEventListener('click', function() {
+    const mockNames = ['报告文档.docx', '架构图.png', '演示文稿.pptx', '数据表格.xlsx', '备份文件.zip'];
+    const mockSizes = ['2.4 MB', '5.1 MB', '8.7 MB', '128 KB', '45.2 MB'];
+    const idx = Math.floor(Math.random() * mockNames.length);
+    processUpload(mockNames[idx], mockSizes[idx]);
+  });
+})();
+
+function processUpload(fileName, fileSize) {
+  // Check for conflict
+  const existingCloud = mockCloudFiles.find(f => f.name === fileName);
+  if (existingCloud) {
+    pendingConflict = {
+      localName: fileName,
+      localSize: fileSize,
+      localTime: new Date().toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }),
+      cloudName: existingCloud.name,
+      cloudSize: existingCloud.size,
+      cloudTime: existingCloud.mtime,
+    };
+    showConflictDialog();
+    return;
+  }
+
+  startTransfer(fileName, fileSize, 'upload');
+}
+
+function startTransfer(fileName, fileSize, direction) {
+  const taskId = ++taskIdCounter;
+  const task = {
+    id: taskId,
+    fileName: fileName,
+    size: fileSize,
+    direction: direction,
+    status: 'transferring',
+    progress: 0,
+    speed: (Math.random() * 5 + 1).toFixed(1) + ' MB/s',
+    eta: '计算中...',
+    intervalId: null,
+  };
+
+  allTransfers.push(task);
+  renderDropzoneTasks();
+  renderTransferPanel();
+
+  // Simulate progress
+  task.intervalId = setInterval(function() {
+    if (task.status !== 'transferring') return;
+
+    task.progress += Math.random() * 15 + 3;
+    if (task.progress >= 100) {
+      task.progress = 100;
+      task.status = 'completed';
+      task.speed = '-';
+      task.eta = '-';
+      clearInterval(task.intervalId);
+      task.intervalId = null;
+      showToast(task.fileName + ' 上传完成', 'success');
+
+      // Add to history
+      mockHistory.unshift({
+        name: task.fileName,
+        size: task.size,
+        direction: task.direction,
+        status: 'completed',
+        time: new Date().toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+      });
+
+      // Simulate random failure sometimes
+      if (Math.random() < 0.1) {
+        task.status = 'failed';
+        mockHistory[0].status = 'failed';
+        showToast(task.fileName + ' 上传失败 (网络错误)', 'error');
+      }
+    } else {
+      task.speed = (Math.random() * 5 + 1).toFixed(1) + ' MB/s';
+      const remaining = ((100 - task.progress) / (Math.random() * 15 + 5)).toFixed(0);
+      task.eta = remaining > 0 ? '剩余 ' + remaining + ' 秒' : '即将完成';
+    }
+
+    renderDropzoneTasks();
+    renderTransferPanel();
+  }, 800);
+}
+
+// ================================================================
+// TRANSFER CONTROLS
+// ================================================================
+
+function pauseTransfer(taskId) {
+  const task = allTransfers.find(t => t.id === taskId);
+  if (!task) return;
+  if (task.status === 'transferring') {
+    task.status = 'paused';
+    showToast(task.fileName + ' 已暂停', 'info');
+  } else if (task.status === 'paused') {
+    task.status = 'transferring';
+    showToast(task.fileName + ' 已恢复', 'info');
+  }
+  renderDropzoneTasks();
+  renderTransferPanel();
+}
+
+function cancelTransfer(taskId) {
+  const task = allTransfers.find(t => t.id === taskId);
+  if (!task) return;
+  if (task.intervalId) clearInterval(task.intervalId);
+  task.status = 'failed';
+  task.intervalId = null;
+
+  mockHistory.unshift({
+    name: task.fileName,
+    size: task.size,
+    direction: task.direction,
+    status: 'cancelled',
+    time: new Date().toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+  });
+
+  showToast(task.fileName + ' 已取消', 'info');
+  renderDropzoneTasks();
+  renderTransferPanel();
+}
+
+function retryTransfer(taskId) {
+  const task = allTransfers.find(t => t.id === taskId);
+  if (!task) return;
+  task.status = 'transferring';
+  task.progress = 0;
+  task.speed = (Math.random() * 5 + 1).toFixed(1) + ' MB/s';
+  task.eta = '计算中...';
+
+  task.intervalId = setInterval(function() {
+    if (task.status !== 'transferring') { clearInterval(task.intervalId); return; }
+    task.progress += Math.random() * 15 + 3;
+    if (task.progress >= 100) {
+      task.progress = 100;
+      task.status = 'completed';
+      task.speed = '-';
+      task.eta = '-';
+      clearInterval(task.intervalId);
+      task.intervalId = null;
+      showToast(task.fileName + ' 上传完成', 'success');
+      mockHistory.unshift({
+        name: task.fileName, size: task.size, direction: task.direction,
+        status: 'completed',
+        time: new Date().toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+      });
+    } else {
+      task.speed = (Math.random() * 5 + 1).toFixed(1) + ' MB/s';
+      task.eta = '剩余 ' + ((100 - task.progress) / (Math.random() * 15 + 5)).toFixed(0) + ' 秒';
+    }
+    renderDropzoneTasks();
+    renderTransferPanel();
+  }, 800);
+
+  renderDropzoneTasks();
+  renderTransferPanel();
+}
+
+// ================================================================
+// RENDER: DROPZONE TASKS
+// ================================================================
+
+function renderDropzoneTasks() {
+  const list = document.getElementById('dropzoneTaskList');
+  const header = document.getElementById('dropzoneTaskHeader');
+  const count = document.getElementById('dropzoneTaskCount');
+  if (!list || !header || !count) return;
+
+  const uploads = allTransfers.filter(t => t.direction === 'upload');
+  if (uploads.length === 0) {
+    header.style.display = 'none';
+    // Remove task items but keep header
+    list.querySelectorAll('.task-item').forEach(el => el.remove());
+    return;
+  }
+
+  header.style.display = 'block';
+  count.textContent = uploads.length;
+
+  // Rebuild task items
+  list.querySelectorAll('.task-item').forEach(el => el.remove());
+
+  uploads.forEach(task => {
+    const el = createTaskElement(task);
+    list.appendChild(el);
+  });
+}
+
+// ================================================================
+// RENDER: TRANSFER PANEL
+// ================================================================
+
+function renderTransferPanel() {
+  const taskListEl = document.getElementById('transferTaskList');
+  const emptyEl = document.getElementById('transferEmpty');
+  if (!taskListEl) return;
+
+  // Remove existing task items
+  taskListEl.querySelectorAll('.task-item').forEach(el => el.remove());
+
+  if (allTransfers.length === 0) {
+    if (emptyEl) emptyEl.style.display = 'flex';
+    updateTransferStats();
+    return;
+  }
+
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  allTransfers.forEach(task => {
+    const el = createTaskElement(task);
+    taskListEl.appendChild(el);
+  });
+
+  updateTransferStats();
+}
+
+function updateTransferStats() {
+  const active = allTransfers.filter(t => t.status === 'transferring').length;
+  const completed = allTransfers.filter(t => t.status === 'completed').length;
+  const failed = allTransfers.filter(t => t.status === 'failed').length;
+
+  const statActive = document.getElementById('statActive');
+  const statCompleted = document.getElementById('statCompleted');
+  const statFailed = document.getElementById('statFailed');
+
+  if (statActive) statActive.textContent = active;
+  if (statCompleted) statCompleted.textContent = completed;
+  if (statFailed) statFailed.textContent = failed;
+}
+
+// Helper: create a task DOM element
+function createTaskElement(task) {
+  const el = document.createElement('div');
+  el.className = 'task-item';
+  el.setAttribute('data-task-id', task.id);
+
+  const pct = Math.min(100, Math.max(0, Math.round(task.progress)));
+
+  let statusBadgeClass = 'badge-transferring';
+  let statusLabel = '进行中';
+  if (task.status === 'completed') { statusBadgeClass = 'badge-completed'; statusLabel = '已完成'; }
+  else if (task.status === 'failed') { statusBadgeClass = 'badge-failed'; statusLabel = '失败'; }
+  else if (task.status === 'paused') { statusBadgeClass = 'badge-paused'; statusLabel = '已暂停'; }
+
+  let progressFillClass = 'status-info';
+  if (task.status === 'completed') progressFillClass = 'status-success';
+  else if (task.status === 'failed') progressFillClass = 'status-error';
+  else if (task.status === 'paused') progressFillClass = 'status-paused';
+
+  const transferringClass = task.status === 'transferring' ? ' transferring' : '';
+
+  let actionsHTML = '';
+  if (task.status === 'transferring') {
+    actionsHTML = `
+      <button class="btn btn-ghost btn-sm" onclick="pauseTransfer(${task.id})" title="暂停">&#9646;&#9646;</button>
+      <button class="btn btn-ghost btn-sm" onclick="cancelTransfer(${task.id})" title="取消">&times;</button>`;
+  } else if (task.status === 'paused') {
+    actionsHTML = `
+      <button class="btn btn-ghost btn-sm" onclick="pauseTransfer(${task.id})" title="恢复">&#9654;</button>
+      <button class="btn btn-ghost btn-sm" onclick="cancelTransfer(${task.id})" title="取消">&times;</button>`;
+  } else if (task.status === 'failed') {
+    actionsHTML = `
+      <button class="btn btn-ghost btn-sm" onclick="retryTransfer(${task.id})" title="重试">&#8635;</button>`;
+  }
+
+  const directionLabel = task.direction === 'upload' ? '上传' : '下载';
+  const directionClass = task.direction === 'upload' ? 'badge-upload' : 'badge-download';
+
+  el.innerHTML = `
+    <div class="task-info">
+      <div class="task-filename">${escapeHtml(task.fileName)}</div>
+      <div class="progress-bar">
+        <div class="progress-fill ${progressFillClass}${transferringClass}" style="width:${pct}%;"></div>
+      </div>
+      <div class="task-meta">
+        <span>${task.size}</span>
+        <span>&#8593; ${task.speed}</span>
+        <span>${task.eta}</span>
+      </div>
+    </div>
+    <span class="badge ${directionClass}">${directionLabel}</span>
+    <span class="badge ${statusBadgeClass}">${statusLabel}</span>
+    <div class="task-actions">${actionsHTML}</div>
+  `;
+
+  return el;
+}
+
+// ================================================================
+// RENDER: CLOUD FILES
+// ================================================================
+
+function renderCloudFiles() {
+  const tbody = document.querySelector('#cloudFileTable tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = mockCloudFiles.map((file, idx) => `
+    <tr>
+      <td class="col-filename" style="display:flex;align-items:center;gap:var(--space-2);">
+        <span style="font-size:16px;">&#128196;</span>
+        ${escapeHtml(file.name)}
+      </td>
+      <td class="col-size">${file.size}</td>
+      <td class="col-time">${file.mtime}</td>
+      <td class="col-actions">
+        <button class="btn btn-primary btn-sm" onclick="downloadCloudFile(${idx})" id="dlBtn${idx}">下载</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function refreshCloudFiles() {
+  showToast('云端文件列表已刷新', 'info');
+  renderCloudFiles();
+}
+
+function downloadCloudFile(index) {
+  const file = mockCloudFiles[index];
+  if (!file) return;
+
+  // Disable button temporarily
+  const btn = document.getElementById('dlBtn' + index);
+  if (btn) { btn.disabled = true; btn.textContent = '下载中...'; }
+
+  startTransfer(file.name, file.size, 'download');
+
+  // Re-enable after a delay
+  setTimeout(function() {
+    if (btn) { btn.disabled = false; btn.textContent = '下载'; }
+  }, 2000);
+
+  showToast('开始下载: ' + file.name, 'info');
+}
+
+// ================================================================
+// RENDER: WATCH SOURCES
+// ================================================================
+
+function renderWatchSources() {
+  const list = document.getElementById('watchSourceList');
+  if (!list) return;
+
+  if (mockWatchSources.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">&#9673;</div>
+        <div class="empty-state-title">暂无监听源</div>
+        <div class="empty-state-desc">点击"添加监听源"注册需要自动同步的文件夹</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = mockWatchSources.map(src => {
+    let statusBadgeClass = 'badge-active';
+    let statusLabel = '运行中';
+    if (src.status === 'error') { statusBadgeClass = 'badge-error'; statusLabel = '错误'; }
+    else if (src.status === 'paused') { statusBadgeClass = 'badge-paused'; statusLabel = '已暂停'; }
+
+    return `
+      <div class="source-item">
+        <div class="source-info">
+          <div class="source-path">${escapeHtml(src.localPath)}</div>
+          <div class="source-meta">
+            <span>云端: ${escapeHtml(src.remoteDir)}</span>
+            <span>排除规则: ${src.filterCount} 条</span>
+            ${src.errorMsg ? `<span style="color:var(--status-error);">${escapeHtml(src.errorMsg)}</span>` : ''}
+          </div>
+        </div>
+        <span class="badge ${statusBadgeClass}">${statusLabel}</span>
+        <button class="btn btn-ghost btn-sm" onclick="removeWatchSource(${src.id})" title="移除">&#10005; 移除</button>
+      </div>`;
+  }).join('');
+}
+
+function addWatchSource() {
+  const path = prompt('请输入要监听的本地文件夹路径:');
+  if (!path || !path.trim()) return;
+
+  const id = Math.max(0, ...mockWatchSources.map(s => s.id)) + 1;
+  mockWatchSources.push({
+    id: id,
+    localPath: path.trim(),
+    remoteDir: '/我的同步文件/' + path.split('\\').pop().split('/').pop(),
+    status: 'active',
+    filterCount: 0,
+  });
+
+  renderWatchSources();
+  showToast('已添加监听源: ' + path, 'success');
+}
+
+function removeWatchSource(id) {
+  const idx = mockWatchSources.findIndex(s => s.id === id);
+  if (idx === -1) return;
+  const src = mockWatchSources[idx];
+  if (confirm('确定要移除监听源 "' + src.localPath + '" 吗？')) {
+    mockWatchSources.splice(idx, 1);
+    renderWatchSources();
+    showToast('已移除监听源', 'info');
+  }
+}
+
+// ================================================================
+// SETTINGS
+// ================================================================
+
+function renderSettings() {
+  renderFilterRules();
+}
+
+function renderFilterRules() {
+  const list = document.getElementById('filterRuleList');
+  if (!list) return;
+
+  if (mockFilterRules.length === 0) {
+    list.innerHTML = '<div style="font-size:var(--text-sm);color:var(--text-tertiary);padding:var(--space-2) 0;">暂无过滤规则</div>';
+    return;
+  }
+
+  list.innerHTML = mockFilterRules.map((rule, idx) => `
+    <div class="filter-rule-item">
+      <span class="rule-pattern">${escapeHtml(rule)}</span>
+      <button class="btn-icon" onclick="removeFilterRule(${idx})" title="删除">&#10005;</button>
+    </div>
+  `).join('');
+}
+
+function addFilterRule() {
+  const input = document.getElementById('newFilterRule');
+  if (!input || !input.value.trim()) return;
+
+  mockFilterRules.push(input.value.trim());
+  input.value = '';
+  renderFilterRules();
+  showToast('已添加过滤规则', 'success');
+}
+
+function removeFilterRule(index) {
+  mockFilterRules.splice(index, 1);
+  renderFilterRules();
+  showToast('已移除过滤规则', 'info');
+}
+
+function toggleAutoLaunch() {
+  const checked = document.getElementById('autoLaunchToggle').checked;
+  showToast(checked ? '已开启开机自启' : '已关闭开机自启', 'info');
+}
+
+function simulateReauth() {
+  showToast('模拟重新授权...', 'info');
+  setTimeout(function() {
+    const indicator = document.getElementById('authIndicator');
+    const desc = document.getElementById('authDesc');
+    if (indicator) { indicator.className = 'auth-indicator connected'; }
+    if (desc) { desc.textContent = '已授权，Token 有效期至 2026-08-25'; }
+    showToast('授权成功！', 'success');
+  }, 1500);
+}
+
+// ================================================================
+// HISTORY
+// ================================================================
+
+function renderHistory() {
+  const tbody = document.querySelector('#historyTable tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = mockHistory.map(item => {
+    let statusBadgeClass = 'badge-completed';
+    let statusLabel = '已完成';
+    if (item.status === 'failed') { statusBadgeClass = 'badge-failed'; statusLabel = '失败'; }
+    else if (item.status === 'cancelled') { statusBadgeClass = 'badge-paused'; statusLabel = '已取消'; }
+
+    const dirLabel = item.direction === 'upload' ? '上传' : '下载';
+    const dirClass = item.direction === 'upload' ? 'badge-upload' : 'badge-download';
+
+    return `
+      <tr>
+        <td class="col-filename">${escapeHtml(item.name)}</td>
+        <td class="col-size">${item.size}</td>
+        <td class="col-direction"><span class="badge ${dirClass}">${dirLabel}</span></td>
+        <td class="col-status"><span class="badge ${statusBadgeClass}">${statusLabel}</span></td>
+        <td class="col-time">${item.time}</td>
+      </tr>`;
+  }).join('');
+}
+
+// ================================================================
+// CONFLICT DIALOG
+// ================================================================
+
+function showConflictDialog() {
+  if (!pendingConflict) return;
+  document.getElementById('conflictLocalName').textContent = pendingConflict.localName;
+  document.getElementById('conflictLocalSize').textContent = pendingConflict.localSize;
+  document.getElementById('conflictLocalTime').textContent = pendingConflict.localTime;
+  document.getElementById('conflictCloudName').textContent = pendingConflict.cloudName;
+  document.getElementById('conflictCloudSize').textContent = pendingConflict.cloudSize;
+  document.getElementById('conflictCloudTime').textContent = pendingConflict.cloudTime;
+  document.getElementById('conflictModal').classList.remove('hidden');
+}
+
+function closeConflictDialog() {
+  document.getElementById('conflictModal').classList.add('hidden');
+  pendingConflict = null;
+}
+
+function resolveConflict(choice) {
+  if (!pendingConflict) return;
+
+  const fileName = pendingConflict.localName;
+  const fileSize = pendingConflict.localSize;
+
+  closeConflictDialog();
+
+  if (choice === 'keep_local') {
+    startTransfer(fileName, fileSize, 'upload');
+    showToast('保留本地版本，正在上传覆盖云端文件...', 'info');
+  } else if (choice === 'keep_cloud') {
+    showToast('已跳过上传，保留云端版本: ' + fileName, 'info');
+    mockHistory.unshift({
+      name: fileName, size: fileSize, direction: 'upload', status: 'cancelled',
+      time: new Date().toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' })
+    });
+  } else if (choice === 'keep_both') {
+    const newName = fileName.replace(/(\.[^.]+)$/, '_副本$1') || fileName + '_副本';
+    startTransfer(newName, fileSize, 'upload');
+    showToast('保留两份: 本地文件将以 "' + newName + '" 上传', 'info');
+  }
+}
+
+// ---- Click outside modal to close ----
+document.getElementById('conflictModal').addEventListener('click', function(e) {
+  if (e.target === this) closeConflictDialog();
+});
+
+// ---- Escape key to close modal ----
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('conflictModal');
+    if (!modal.classList.contains('hidden')) closeConflictDialog();
+  }
+});
+
+// ================================================================
+// TOAST NOTIFICATIONS
+// ================================================================
+
+function showToast(message, type) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-' + (type || 'info');
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(function() {
+    toast.classList.add('removing');
+    setTimeout(function() {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 300);
+  }, 2500);
+}
+
+// ================================================================
+// UTILITY
+// ================================================================
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ================================================================
+// INITIALIZATION
+// ================================================================
+
+(function init() {
+  renderDropzoneTasks();
+  renderCloudFiles();
+  renderWatchSources();
+  renderSettings();
+  renderHistory();
+  updateTransferStats();
+
+  // Pre-populate some demo transfers for immediate visual feedback
+  const demoTasks = [
+    { name: '项目文档_v2.docx', size: '3.1 MB', progress: 68, status: 'transferring', direction: 'upload', speed: '2.4 MB/s', eta: '剩余 12 秒' },
+    { name: '设计稿_终版.fig', size: '15.8 MB', progress: 100, status: 'completed', direction: 'upload', speed: '-', eta: '-' },
+    { name: '旧版数据.csv', size: '856 KB', progress: 42, status: 'failed', direction: 'upload', speed: '-', eta: '-' },
+    { name: '产品手册.pdf', size: '1.2 MB', progress: 100, status: 'completed', direction: 'download', speed: '-', eta: '-' },
+  ];
+
+  demoTasks.forEach(function(dt, idx) {
+    const taskId = ++taskIdCounter;
+    const task = {
+      id: taskId,
+      fileName: dt.name,
+      size: dt.size,
+      direction: dt.direction,
+      status: dt.status,
+      progress: dt.progress,
+      speed: dt.speed,
+      eta: dt.eta,
+      intervalId: null,
+    };
+
+    allTransfers.push(task);
+
+    if (dt.status === 'transferring') {
+      task.intervalId = setInterval(function() {
+        if (task.status !== 'transferring') { clearInterval(task.intervalId); return; }
+        task.progress += Math.random() * 10 + 2;
+        if (task.progress >= 100) {
+          task.progress = 100;
+          task.status = 'completed';
+          task.speed = '-';
+          task.eta = '-';
+          clearInterval(task.intervalId);
+          task.intervalId = null;
+          showToast(task.fileName + ' 上传完成', 'success');
+        } else {
+          task.speed = (Math.random() * 4 + 1).toFixed(1) + ' MB/s';
+          task.eta = '剩余 ' + ((100 - task.progress) / 8).toFixed(0) + ' 秒';
+        }
+        renderDropzoneTasks();
+        renderTransferPanel();
+      }, 1000);
+    }
+  });
+
+  renderDropzoneTasks();
+  renderTransferPanel();
+})();
+
+// Log prototype info
+console.log('%c[PROTOTYPE] 文件自动同步管理器 UI 原型已就绪',
+  'color: #6366f1; font-size: 16px; font-weight: bold;');
+console.log('%c所有样式引用 ../styles/tokens.css CSS Variables | 零硬编码色值/间距/圆角',
+  'color: #94a3b8; font-size: 12px;');
+console.log('%c交互提示:', 'color: #f59e0b; font-weight: bold;');
+console.log('  - 点击或拖拽文件到上传区域');
+console.log('  - 侧边栏切换页面');
+console.log('  - 底部主题切换开关');
+console.log('  - 云端文件表格中点击"下载"');
+console.log('  - 监听源页面可添加/移除监听源');
+console.log('  - 设置页面可管理过滤规则和通知');
+console.log('  - 上传同名文件(如"项目文档.docx")可触发冲突弹窗');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.superpowers/
+*.log
+.env
+__pycache__/
+.claude/settings.local.json

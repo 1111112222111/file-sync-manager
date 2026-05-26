@@ -1,0 +1,431 @@
+/* ============================================================
+   文件自动同步管理器 — Design Tokens
+   深色/浅色双主题，通过 [data-theme="dark"] / [data-theme="light"] 切换
+   所有视觉属性以 CSS Variables 定义，禁止硬编码色值/间距/圆角
+   ============================================================ */
+
+/* ----------------------------------------------------------
+   0. 基础定义（与主题无关的全局变量）
+   ---------------------------------------------------------- */
+
+:root {
+  /* ---- 字体族 ---- */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code',
+    'SF Mono', 'Consolas', monospace;
+
+  /* ---- 间距系统（4px 基准网格）---- */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---- 圆角 ---- */
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* ---- 字体大小 ---- */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+
+  /* ---- 行高 ---- */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  /* ---- 字重 ---- */
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* ---- 过渡动画时长 ---- */
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-modal: 250ms;
+
+  /* ---- 缓动函数 ---- */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ---- Z-Index 层级 ---- */
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-modal-backdrop: 300;
+  --z-modal: 400;
+  --z-notification: 500;
+  --z-tooltip: 600;
+
+  /* ---- 进度条高度 ---- */
+  --progress-height: 4px;
+  --progress-height-lg: 6px;
+
+  /* ---- 拖拽区域虚线边框 ---- */
+  --dropzone-border-width: 2px;
+  --dropzone-border-dash: 8px;
+  --dropzone-border-gap: 4px;
+}
+
+/* ----------------------------------------------------------
+   1. 深色主题（默认）
+   ---------------------------------------------------------- */
+:root,
+[data-theme='dark'] {
+  /* ---- 背景层级 ---- */
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16162b;
+  --bg-elevated: #222240;
+  --bg-hover: #2a2a4a;
+  --bg-active: #33335a;
+  --bg-input: #1e1e35;
+  --bg-tooltip: #2d2d4f;
+  --bg-selection: rgba(99, 102, 241, 0.25);
+  --bg-scrollbar-thumb: #334155;
+  --bg-scrollbar-track: transparent;
+
+  /* ---- 文字层级 ---- */
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-disabled: #475569;
+  --text-inverse: #0f172a;
+  --text-link: #818cf8;
+  --text-link-hover: #a5b4fc;
+
+  /* ---- 强调色（蓝紫渐变体系）---- */
+  --accent-primary: #6366f1;
+  --accent-primary-hover: #818cf8;
+  --accent-primary-active: #4f46e5;
+  --accent-primary-muted: rgba(99, 102, 241, 0.18);
+  --accent-secondary: #8b5cf6;
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --accent-gradient-hover: linear-gradient(135deg, #818cf8 0%, #a78bfa 100%);
+  --accent-glow: 0 0 16px rgba(99, 102, 241, 0.4),
+    0 0 40px rgba(99, 102, 241, 0.15);
+  --text-on-accent: #ffffff;
+
+  /* ---- 边框 ---- */
+  --border-default: #334155;
+  --border-subtle: #1e293b;
+  --border-hover: #475569;
+  --border-focus: #6366f1;
+  --border-error: #ef4444;
+
+  /* ---- 状态色 ---- */
+  --status-success: #22c55e;
+  --status-success-hover: #4ade80;
+  --status-success-bg: rgba(34, 197, 94, 0.15);
+  --status-success-border: rgba(34, 197, 94, 0.3);
+
+  --status-warning: #f59e0b;
+  --status-warning-hover: #fbbf24;
+  --status-warning-bg: rgba(245, 158, 11, 0.15);
+  --status-warning-border: rgba(245, 158, 11, 0.3);
+
+  --status-error: #ef4444;
+  --status-error-hover: #f87171;
+  --status-error-bg: rgba(239, 68, 68, 0.15);
+  --status-error-border: rgba(239, 68, 68, 0.3);
+
+  --status-info: #3b82f6;
+  --status-info-hover: #60a5fa;
+  --status-info-bg: rgba(59, 130, 246, 0.15);
+  --status-info-border: rgba(59, 130, 246, 0.3);
+
+  --status-paused: #94a3b8;
+  --status-paused-bg: rgba(148, 163, 184, 0.12);
+  --status-paused-border: rgba(148, 163, 184, 0.25);
+
+  --status-pending: #a78bfa;
+  --status-pending-bg: rgba(167, 139, 250, 0.12);
+  --status-pending-border: rgba(167, 139, 250, 0.25);
+
+  /* ---- 表面/覆盖层 ---- */
+  --surface-overlay: rgba(0, 0, 0, 0.65);
+  --surface-glass: rgba(34, 34, 64, 0.85);
+
+  /* ---- 阴影 ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 50px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+
+  /* ---- 滚动条 ---- */
+  --scrollbar-width: 6px;
+  --scrollbar-thumb: #475569;
+  --scrollbar-thumb-hover: #64748b;
+}
+
+/* ----------------------------------------------------------
+   2. 浅色主题
+   ---------------------------------------------------------- */
+[data-theme='light'] {
+  /* ---- 背景层级 ---- */
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #eef0f4;
+  --bg-elevated: #ffffff;
+  --bg-hover: #e8eaf0;
+  --bg-active: #dde1e8;
+  --bg-input: #ffffff;
+  --bg-tooltip: #1e293b;
+  --bg-selection: rgba(99, 102, 241, 0.15);
+  --bg-scrollbar-thumb: #cbd5e1;
+  --bg-scrollbar-track: transparent;
+
+  /* ---- 文字层级 ---- */
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+  --text-disabled: #cbd5e1;
+  --text-inverse: #f8fafc;
+  --text-link: #4f46e5;
+  --text-link-hover: #4338ca;
+
+  /* ---- 强调色 ---- */
+  --accent-primary: #6366f1;
+  --accent-primary-hover: #4f46e5;
+  --accent-primary-active: #4338ca;
+  --accent-primary-muted: rgba(99, 102, 241, 0.1);
+  --accent-secondary: #8b5cf6;
+  --accent-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --accent-gradient-hover: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  --accent-glow: 0 0 16px rgba(99, 102, 241, 0.2),
+    0 0 32px rgba(99, 102, 241, 0.08);
+  --text-on-accent: #ffffff;
+
+  /* ---- 边框 ---- */
+  --border-default: #d1d5db;
+  --border-subtle: #e5e7eb;
+  --border-hover: #9ca3af;
+  --border-focus: #6366f1;
+  --border-error: #ef4444;
+
+  /* ---- 状态色 ---- */
+  --status-success: #16a34a;
+  --status-success-hover: #15803d;
+  --status-success-bg: rgba(22, 163, 74, 0.1);
+  --status-success-border: rgba(22, 163, 74, 0.25);
+
+  --status-warning: #d97706;
+  --status-warning-hover: #b45309;
+  --status-warning-bg: rgba(217, 119, 6, 0.1);
+  --status-warning-border: rgba(217, 119, 6, 0.25);
+
+  --status-error: #dc2626;
+  --status-error-hover: #b91c1c;
+  --status-error-bg: rgba(220, 38, 38, 0.1);
+  --status-error-border: rgba(220, 38, 38, 0.25);
+
+  --status-info: #2563eb;
+  --status-info-hover: #1d4ed8;
+  --status-info-bg: rgba(37, 99, 235, 0.1);
+  --status-info-border: rgba(37, 99, 235, 0.25);
+
+  --status-paused: #9ca3af;
+  --status-paused-bg: rgba(156, 163, 175, 0.1);
+  --status-paused-border: rgba(156, 163, 175, 0.2);
+
+  --status-pending: #7c3aed;
+  --status-pending-bg: rgba(124, 58, 237, 0.08);
+  --status-pending-border: rgba(124, 58, 237, 0.2);
+
+  /* ---- 表面/覆盖层 ---- */
+  --surface-overlay: rgba(15, 23, 42, 0.45);
+  --surface-glass: rgba(255, 255, 255, 0.9);
+
+  /* ---- 阴影（macOS 风格：大 blur + 低不透明度）---- */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.06), 0 4px 6px rgba(0, 0, 0, 0.04);
+  --shadow-xl: 0 20px 35px rgba(0, 0, 0, 0.07),
+    0 10px 15px rgba(0, 0, 0, 0.04);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-dropdown: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+
+  /* ---- 滚动条 ---- */
+  --scrollbar-width: 6px;
+  --scrollbar-thumb: #cbd5e1;
+  --scrollbar-thumb-hover: #94a3b8;
+}
+
+/* ----------------------------------------------------------
+   3. 组件级 Token（主题无关，引用上面变量）
+   ---------------------------------------------------------- */
+
+/* ---- 按钮 ---- */
+:root {
+  --btn-height-sm: 28px;
+  --btn-height-md: 34px;
+  --btn-height-lg: 42px;
+  --btn-padding-x-sm: var(--space-3);
+  --btn-padding-x-md: var(--space-4);
+  --btn-padding-x-lg: var(--space-5);
+  --btn-font-size-sm: var(--text-sm);
+  --btn-font-size-md: var(--text-base);
+  --btn-font-size-lg: var(--text-base);
+  --btn-transition: all var(--duration-fast) var(--ease-default);
+}
+
+/* ---- 输入框 ---- */
+:root {
+  --input-height: 34px;
+  --input-padding-x: var(--space-3);
+  --input-transition: border-color var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-fast) var(--ease-default);
+}
+
+/* ---- 卡片/面板 ---- */
+:root {
+  --card-padding: var(--space-4);
+  --card-padding-lg: var(--space-6);
+  --card-radius: var(--radius-lg);
+}
+
+/* ---- 表格 ---- */
+:root {
+  --table-header-height: 36px;
+  --table-row-height: 40px;
+  --table-cell-padding-x: var(--space-3);
+}
+
+/* ---- 导航栏 ---- */
+:root {
+  --navbar-height: 48px;
+  --navbar-padding-x: var(--space-4);
+}
+
+/* ---- 侧边栏 ---- */
+:root {
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 56px;
+}
+
+/* ---- 模态弹窗 ---- */
+:root {
+  --modal-width-sm: 380px;
+  --modal-width-md: 480px;
+  --modal-width-lg: 600px;
+  --modal-padding: var(--space-6);
+}
+
+/* ---- 托盘图标指示器 ---- */
+:root {
+  --tray-syncing-color: var(--accent-primary);
+  --tray-idle-color: var(--text-tertiary);
+  --tray-error-color: var(--status-error);
+  --tray-dot-size: 8px;
+}
+
+/* ---- 拖拽区域 ---- */
+:root {
+  --dropzone-min-height: 160px;
+  --dropzone-padding: var(--space-8);
+}
+
+/* ----------------------------------------------------------
+   4. 全局基础样式
+   ---------------------------------------------------------- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden; /* Electron 窗口默认不可滚动，内层容器自行处理 */
+}
+
+/* ---- 链接 ---- */
+a {
+  color: var(--text-link);
+  text-decoration: none;
+  transition: color var(--duration-fast) var(--ease-default);
+}
+
+a:hover {
+  color: var(--text-link-hover);
+}
+
+/* ---- 选中文本 ---- */
+::selection {
+  background-color: var(--bg-selection);
+}
+
+/* ---- 焦点环 ---- */
+:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---- 减少动画偏好 ---- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---- 滚动条（Webkit）---- */
+::-webkit-scrollbar {
+  width: var(--scrollbar-width);
+  height: var(--scrollbar-width);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
