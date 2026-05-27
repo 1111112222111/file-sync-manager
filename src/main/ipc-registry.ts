@@ -122,11 +122,20 @@ export function registerIPCHandlers(deps: IPCRegistryDeps, mainWindow: BrowserWi
   });
 
   ipcMain.handle('auth:startOAuth', async () => {
-    return await authManager.startOAuth();
+    const result = await authManager.startOAuth();
+    if (result.success) {
+      const token = authManager.getToken();
+      if (token) {
+        configStore.set('baiduToken', token);
+        cloudAdapter.setAccessToken(token.accessToken);
+      }
+    }
+    return result;
   });
 
   ipcMain.handle('auth:logout', () => {
     authManager.logout();
+    configStore.set('baiduToken', null);
   });
 
   // —— 配置 ——
@@ -149,6 +158,15 @@ export function registerIPCHandlers(deps: IPCRegistryDeps, mainWindow: BrowserWi
   // —— 历史记录 ——
   ipcMain.handle('history:getList', (_event, limit?: number, offset?: number) => {
     return historyStore.getList(limit, offset);
+  });
+
+  // —— 窗口控制 ——
+  ipcMain.handle('window:minimize', () => {
+    mainWindow.minimize();
+  });
+
+  ipcMain.handle('window:close', () => {
+    mainWindow.close();
   });
 
   // —— 系统对话框 ——

@@ -154,9 +154,17 @@ export type NotificationLevel = 'all' | 'error_only' | 'off';
 /** 主题 */
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+/** 百度网盘 API 凭证（从开发者控制台获取） */
+export interface BaiduApiCredentials {
+  appId: string;
+  apiKey: string;
+  secretKey: string;
+}
+
 /** 应用配置 */
 export interface AppConfig {
   baiduToken: BaiduToken | null;
+  baiduCredentials: BaiduApiCredentials | null;
   remoteRootPath: string;
   notificationLevel: NotificationLevel;
   theme: ThemeMode;

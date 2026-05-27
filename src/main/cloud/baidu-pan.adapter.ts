@@ -31,14 +31,18 @@ interface BaiduPanOptions {
 const PAN_BASE_URL = 'https://pan.baidu.com';
 
 export class BaiduPanAdapter implements ICloudAdapter {
-  private readonly accessToken: string;
+  private accessToken: string;
   private readonly remoteRoot: string;
   private readonly http: HttpRequest;
 
   constructor(options: BaiduPanOptions) {
     this.accessToken = options.accessToken;
-    this.remoteRoot = options.remoteRoot.replace(/\/+$/, ''); // 去掉尾部斜杠
+    this.remoteRoot = options.remoteRoot.replace(/\/+$/, '');
     this.http = options.httpRequest ?? fetch;
+  }
+
+  setAccessToken(token: string): void {
+    this.accessToken = token;
   }
 
   /** 拼接带 access_token 的 URL */

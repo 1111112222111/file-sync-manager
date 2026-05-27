@@ -4,10 +4,11 @@
  * 内存存储实现（生产环境替换为 electron-store 加密存储）
  */
 import { v4 as uuidv4 } from 'uuid';
-import type { AppConfig, BaiduToken, FilterRule, NotificationLevel, ThemeMode } from '../../shared/types';
+import type { AppConfig, BaiduToken, BaiduApiCredentials, FilterRule, NotificationLevel, ThemeMode } from '../../shared/types';
 
 const DEFAULT_CONFIG: AppConfig = {
   baiduToken: null,
+  baiduCredentials: null,
   remoteRootPath: '/我的同步文件',
   notificationLevel: 'all',
   theme: 'dark',

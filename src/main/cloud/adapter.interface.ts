@@ -33,4 +33,7 @@ export interface ICloudAdapter {
 
   /** 获取存储配额信息 */
   getQuota(): Promise<QuotaInfo>;
+
+  /** 更新访问令牌（OAuth 授权后调用） */
+  setAccessToken(token: string): void;
 }

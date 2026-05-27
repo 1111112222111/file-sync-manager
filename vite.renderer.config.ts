@@ -17,5 +17,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    fs: {
+      allow: ['..'],  // 允许访问上层目录的 tokens.css
+    },
   },
 });

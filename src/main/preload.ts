@@ -43,6 +43,10 @@ const electronAPI = {
   // —— 历史 ——
   historyGetList: (limit?: number, offset?: number) => ipcRenderer.invoke('history:getList', limit, offset),
 
+  // —— 窗口控制 ——
+  windowMinimize: () => ipcRenderer.invoke('window:minimize'),
+  windowClose: () => ipcRenderer.invoke('window:close'),
+
   // —— 对话框 ——
   dialogSaveFile: (defaultName: string) => ipcRenderer.invoke('dialog:saveFile', defaultName),
 
@@ -57,6 +61,7 @@ const electronAPI = {
   },
 };
 
+console.log('[Preload] electronAPI 已暴露到渲染进程');
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
 
 export type ElectronAPI = typeof electronAPI;

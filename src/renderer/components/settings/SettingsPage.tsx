@@ -3,29 +3,35 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useElectronAPI } from '../../hooks/useIpc';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
+import { ToggleSwitch } from '../common/ToggleSwitch';
 import type { AppConfig, AuthStatus } from '../../../shared/types';
 
 export const SettingsPage: React.FC = () => {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
   const [newFilterPattern, setNewFilterPattern] = useState('');
   const api = useElectronAPI();
 
   const loadConfig = useCallback(async () => {
-    if (!api) return;
-    const cfg = await api.configGetAll();
-    const status = await api.authGetStatus();
-    setConfig(cfg);
-    setAuthStatus(status);
+    if (!api) {
+      setError('electronAPI 未加载，preload 脚本可能执行失败');
+      return;
+    }
+    try {
+      const cfg = await api.configGetAll();
+      const status = await api.authGetStatus();
+      setConfig(cfg);
+      setAuthStatus(status);
+      setError(null);
+    } catch (err: any) {
+      setError(`加载配置失败: ${err.message ?? '未知错误'}`);
+    }
   }, [api]);
 
   useEffect(() => { loadConfig(); }, [loadConfig]);
-
-  const handleSetTheme = async (theme: string) => {
-    if (!api) return;
-    await api.configSet('theme', theme);
-    setConfig((prev) => prev ? { ...prev, theme: theme as any } : prev);
-  };
 
   const handleSetNotification = async (level: string) => {
     if (!api) return;
@@ -46,8 +52,39 @@ export const SettingsPage: React.FC = () => {
     setConfig((prev) => prev ? { ...prev, filterRules: prev.filterRules.filter((r) => r.id !== id) } : prev);
   };
 
-  const handleAuth = async () => { if (api) await api.authStartOAuth(); };
-  const handleLogout = async () => { if (api) { await api.authLogout(); await loadConfig(); } };
+  const handleAuth = async () => {
+    if (!api) return;
+    setAuthLoading(true);
+    setMessage(null);
+    try {
+      const result = await api.authStartOAuth();
+      if (!result.success) {
+        setError(result.error ?? '授权启动失败');
+      } else {
+        setMessage('授权成功！正在刷新状态...');
+        await loadConfig();
+        setMessage('授权成功！');
+      }
+    } catch (err: any) {
+      setError(`授权调用失败: ${err.message ?? '未知错误'}`);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+  const handleLogout = async () => {
+    if (!api) return;
+    await api.authLogout();
+    await loadConfig();
+  };
+
+  if (error) {
+    return (
+      <div style={{ padding: 'var(--space-4)' }}>
+        <p style={{ color: 'var(--status-error)', marginBottom: 'var(--space-3)' }}>{error}</p>
+        <Button size="sm" variant="secondary" onClick={() => { setError(null); loadConfig(); }}>重试</Button>
+      </div>
+    );
+  }
 
   if (!config) {
     return <p style={{ color: 'var(--text-tertiary)', padding: 'var(--space-4)' }}>加载配置中...</p>;
@@ -60,35 +97,43 @@ export const SettingsPage: React.FC = () => {
       </h2>
 
       {/* 网盘授权 */}
-      <Section title="百度网盘授权">
+      <Section title="百度网盘 OAuth 授权">
+        {message && (
+          <p style={{
+            color: 'var(--status-success)', fontSize: 'var(--text-sm)',
+            marginBottom: 'var(--space-2)', padding: 'var(--space-2)',
+            background: 'var(--bg-success-muted)', borderRadius: 'var(--radius-sm)',
+          }}>{message}</p>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <span style={{
             width: 8, height: 8, borderRadius: 'var(--radius-full)',
             background: authStatus?.isAuthorized ? 'var(--status-success)' : 'var(--status-error)',
           }} />
           <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', flex: 1 }}>
-            {authStatus?.isAuthorized ? '已授权' : '未授权'}
+            {authStatus?.isAuthorized ? '已授权（Token 有效）' : '未授权'}
           </span>
           {authStatus?.isAuthorized
             ? <Button size="sm" variant="secondary" onClick={handleLogout}>登出</Button>
-            : <Button size="sm" variant="primary" onClick={handleAuth}>授权</Button>
+            : <Button size="sm" variant="primary" onClick={handleAuth} disabled={authLoading}>
+                {authLoading ? '正在打开浏览器...' : '授权百度网盘'}
+              </Button>
           }
         </div>
       </Section>
 
-      {/* 主题 */}
-      <Section title="主题">
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          {(['dark', 'light', 'system'] as const).map((t) => (
-            <Button
-              key={t}
-              size="sm"
-              variant={config.theme === t ? 'primary' : 'secondary'}
-              onClick={() => handleSetTheme(t)}
-            >
-              {t === 'dark' ? '深色' : t === 'light' ? '浅色' : '跟随系统'}
-            </Button>
-          ))}
+      {/* 开机自启 */}
+      <Section title="开机自启">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>系统启动时自动运行</span>
+          <ToggleSwitch
+            checked={config.autoLaunch ?? false}
+            onChange={async (checked) => {
+              if (!api) return;
+              await api.configSet('autoLaunch', checked);
+              setConfig((prev) => prev ? { ...prev, autoLaunch: checked } : prev);
+            }}
+          />
         </div>
       </Section>
 

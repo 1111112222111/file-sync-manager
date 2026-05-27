@@ -1,8 +1,9 @@
 /**
- * src/renderer/App.tsx — AppShell：布局框架 + 导航 + 主题
+ * src/renderer/App.tsx — 便签风格布局
  */
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useTheme } from './hooks/useTheme';
+import { SunIcon, MoonIcon, MinimizeIcon, CloseIcon } from './components/common/Icons';
 import { DropZone } from './components/drop-zone/DropZone';
 import { TransferPanel } from './components/transfer-panel/TransferPanel';
 import { CloudBrowser } from './components/cloud-browser/CloudBrowser';
@@ -14,9 +15,9 @@ import type { ConflictInfo, ConflictChoice } from '../shared/types';
 type NavTab = 'transfer' | 'cloud' | 'watch' | 'settings';
 
 const NAV_ITEMS: { id: NavTab; label: string }[] = [
-  { id: 'transfer', label: '传输任务' },
-  { id: 'cloud', label: '云端浏览' },
-  { id: 'watch', label: '监听源' },
+  { id: 'transfer', label: '传输' },
+  { id: 'cloud', label: '云端' },
+  { id: 'watch', label: '监听' },
   { id: 'settings', label: '设置' },
 ];
 
@@ -25,7 +26,6 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('transfer');
   const [conflict, setConflict] = useState<ConflictInfo | null>(null);
 
-  // 初始化主题
   React.useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => { if (theme === 'system') setTheme('system'); };
@@ -34,45 +34,60 @@ const App: React.FC = () => {
   }, [theme, setTheme]);
 
   const handleConflictResolve = (_taskId: string, _choice: ConflictChoice) => {
-    // 简化：关闭弹窗（生产环境通过 IPC 通知主进程）
     setConflict(null);
   };
 
+  const handleClose = useCallback(() => {
+    const api = (window as any).electronAPI;
+    api?.windowClose?.();
+  }, []);
+
+  const handleMinimize = useCallback(() => {
+    const api = (window as any).electronAPI;
+    api?.windowMinimize?.();
+  }, []);
+
   return (
     <div style={appStyle}>
-      {/* 导航栏 */}
-      <header style={headerStyle}>
-        <h1 style={titleStyle}>文件自动同步管理器</h1>
-        <nav style={{ display: 'flex', gap: 'var(--space-1)' }}>
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              style={{
-                ...navBtnStyle,
-                background: activeTab === item.id ? 'var(--accent-primary-muted)' : 'transparent',
-                color: activeTab === item.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <button
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          style={themeBtnStyle}
-          title="切换主题"
-        >
-          {theme === 'dark' ? '浅色' : '深色'}
-        </button>
+      {/* 无边框标题栏 */}
+      <header style={titleBarStyle} className="drag-region">
+        <span style={titleStyle}>文件同步</span>
+        <div style={windowControlsStyle}>
+          <button
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            style={controlBtnStyle}
+            title="切换主题"
+          >
+            {theme === 'dark' ? <SunIcon size={14} /> : <MoonIcon size={14} />}
+          </button>
+          <button onClick={handleMinimize} style={controlBtnStyle}><MinimizeIcon size={14} /></button>
+          <button onClick={handleClose} style={{ ...controlBtnStyle, color: 'var(--status-error)' }}><CloseIcon size={14} color="var(--status-error)" /></button>
+        </div>
       </header>
+
+      {/* 导航 */}
+      <nav style={navStyle}>
+        {NAV_ITEMS.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => setActiveTab(item.id)}
+            style={{
+              ...navBtnStyle,
+              background: activeTab === item.id ? 'var(--accent-primary-muted)' : 'transparent',
+              color: activeTab === item.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
+            }}
+          >
+            {item.label}
+          </button>
+        ))}
+      </nav>
 
       {/* 内容区 */}
       <main style={mainStyle}>
         {activeTab === 'transfer' && (
           <>
             <DropZone />
-            <div style={{ height: 'var(--space-4)' }} />
+            <div style={{ height: 8 }} />
             <TransferPanel />
           </>
         )}
@@ -87,7 +102,7 @@ const App: React.FC = () => {
   );
 };
 
-// ─── 样式（全部使用 CSS Token）───
+// ─── 样式 ───
 
 const appStyle: React.CSSProperties = {
   display: 'flex',
@@ -96,51 +111,72 @@ const appStyle: React.CSSProperties = {
   backgroundColor: 'var(--bg-primary)',
   color: 'var(--text-primary)',
   fontFamily: 'var(--font-sans)',
-  fontSize: 'var(--text-base)',
+  fontSize: 'var(--text-sm)',
+  borderRadius: '8px',
+  overflow: 'hidden',
 };
 
-const headerStyle: React.CSSProperties = {
-  height: 'var(--navbar-height)',
+const titleBarStyle: React.CSSProperties = {
+  height: 32,
   display: 'flex',
   alignItems: 'center',
-  gap: 'var(--space-6)',
-  padding: '0 var(--navbar-padding-x)',
-  borderBottom: '1px solid var(--border-subtle)',
+  justifyContent: 'space-between',
+  padding: '0 8px 0 12px',
   backgroundColor: 'var(--bg-elevated)',
   flexShrink: 0,
+  WebkitAppRegion: 'drag',
+  userSelect: 'none',
 };
 
 const titleStyle: React.CSSProperties = {
-  fontSize: 'var(--text-lg)',
+  fontSize: 'var(--text-xs)',
   fontWeight: 'var(--font-semibold)',
-  color: 'var(--text-primary)',
-  whiteSpace: 'nowrap',
+  color: 'var(--text-tertiary)',
+};
+
+const windowControlsStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 2,
+  WebkitAppRegion: 'no-drag',
+};
+
+const controlBtnStyle: React.CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: 'var(--text-secondary)',
+  fontSize: 'var(--text-sm)',
+  width: 28,
+  height: 24,
+  cursor: 'pointer',
+  borderRadius: 'var(--radius-sm)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  lineHeight: 1,
+};
+
+const navStyle: React.CSSProperties = {
+  display: 'flex',
+  gap: 2,
+  padding: '4px 8px',
+  backgroundColor: 'var(--bg-elevated)',
+  borderBottom: '1px solid var(--border-subtle)',
+  flexShrink: 0,
 };
 
 const navBtnStyle: React.CSSProperties = {
   border: 'none',
-  borderRadius: 'var(--radius-md)',
-  padding: 'var(--space-1) var(--space-3)',
-  fontSize: 'var(--text-sm)',
+  borderRadius: 'var(--radius-sm)',
+  padding: '4px 10px',
+  fontSize: 'var(--text-xs)',
   fontWeight: 'var(--font-medium)',
   cursor: 'pointer',
   transition: 'all var(--duration-fast) var(--ease-default)',
 };
 
-const themeBtnStyle: React.CSSProperties = {
-  marginLeft: 'auto',
-  border: '1px solid var(--border-default)',
-  borderRadius: 'var(--radius-md)',
-  padding: 'var(--space-1) var(--space-3)',
-  fontSize: 'var(--text-sm)',
-  background: 'var(--bg-secondary)',
-  color: 'var(--text-secondary)',
-  cursor: 'pointer',
-};
-
 const mainStyle: React.CSSProperties = {
   flex: 1,
-  padding: 'var(--space-6)',
+  padding: 'var(--space-3)',
   overflow: 'auto',
 };
 

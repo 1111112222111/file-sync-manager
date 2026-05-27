@@ -4,7 +4,8 @@
   "description": "文件自动同步管理器 - 本地文件实时备份到百度网盘",
   "main": "dist/main/index.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev": "concurrently -k \"npm run dev:main\" \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dev:electron": "node -e \"const{execSync}=require('child_process'),fs=require('fs'),http=require('http');function checkPreload(){try{fs.accessSync('dist/main/preload.js');return true}catch{return false}}function checkServer(){return new Promise(r=>{http.get('http://localhost:5173',()=>r(true)).on('error',()=>r(false))})}async function wait(){while(!checkPreload())await new Promise(r=>setTimeout(r,500));console.log('[dev] preload 就绪，等待 Vite dev server...');let serverReady=false;while(!serverReady){serverReady=await checkServer();if(!serverReady)await new Promise(r=>setTimeout(r,800))}console.log('[dev] Vite server 就绪，启动 Electron...');execSync('electron . --dev',{stdio:'inherit'})}wait()\"",
     "dev:main": "vite build --config vite.main.config.ts --watch",
     "dev:renderer": "vite --config vite.renderer.config.ts",
     "build": "npm run build:main && npm run build:renderer",
@@ -26,19 +27,19 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.8",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
     "@types/uuid": "^9.0.7",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^1.6.0",
     "concurrently": "^8.2.2",
     "electron": "^30.0.0",
     "electron-builder": "^24.13.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "@types/react": "^18.3.1",
-    "@types/react-dom": "^18.3.0",
     "typescript": "^5.4.5",
     "vite": "^5.2.11",
-    "vitest": "^1.6.0",
-    "@vitest/coverage-v8": "^1.6.0"
+    "vitest": "^1.6.0"
   },
   "build": {
     "appId": "com.filesyncmanager.app",
@@ -47,7 +48,8 @@
       "output": "release"
     },
     "files": [
-      "dist/**/*"
+      "dist/**/*",
+      "assets/**/*"
     ],
     "win": {
       "target": "nsis",
