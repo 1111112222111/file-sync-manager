@@ -144,6 +144,7 @@ export interface AuthStatus {
   isAuthorized: boolean;
   expiresAt: number | null;
   userName?: string;
+  avatarUrl?: string;
 }
 
 // ─── 配置 ───
@@ -165,6 +166,7 @@ export interface BaiduApiCredentials {
 export interface AppConfig {
   baiduToken: BaiduToken | null;
   baiduCredentials: BaiduApiCredentials | null;
+  baiduUser: { name: string; avatar: string } | null;
   remoteRootPath: string;
   notificationLevel: NotificationLevel;
   theme: ThemeMode;

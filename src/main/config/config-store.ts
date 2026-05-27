@@ -9,6 +9,7 @@ import type { AppConfig, BaiduToken, BaiduApiCredentials, FilterRule, Notificati
 const DEFAULT_CONFIG: AppConfig = {
   baiduToken: null,
   baiduCredentials: null,
+  baiduUser: null,
   remoteRootPath: '/我的同步文件',
   notificationLevel: 'all',
   theme: 'dark',

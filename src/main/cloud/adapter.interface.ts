@@ -36,4 +36,7 @@ export interface ICloudAdapter {
 
   /** 更新访问令牌（OAuth 授权后调用） */
   setAccessToken(token: string): void;
+
+  /** 获取当前用户信息 */
+  getUserInfo(): Promise<{ name: string; avatar: string } | null>;
 }

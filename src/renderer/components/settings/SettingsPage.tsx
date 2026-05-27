@@ -111,7 +111,9 @@ export const SettingsPage: React.FC = () => {
             background: authStatus?.isAuthorized ? 'var(--status-success)' : 'var(--status-error)',
           }} />
           <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', flex: 1 }}>
-            {authStatus?.isAuthorized ? '已授权（Token 有效）' : '未授权'}
+            {authStatus?.isAuthorized
+              ? `已登录${authStatus.userName ? ` — ${authStatus.userName}` : ''}`
+              : '未授权'}
           </span>
           {authStatus?.isAuthorized
             ? <Button size="sm" variant="secondary" onClick={handleLogout}>登出</Button>

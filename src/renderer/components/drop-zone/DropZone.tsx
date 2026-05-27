@@ -5,6 +5,7 @@ import { useElectronAPI } from '../../hooks/useIpc';
 export const DropZone: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [dropFeedback, setDropFeedback] = useState<string | null>(null);
   const api = useElectronAPI();
   const counterRef = useRef(0);
 
@@ -45,7 +46,10 @@ export const DropZone: React.FC = () => {
 
     const files = Array.from(e.dataTransfer.files).map((f) => (f as any).path ?? f.name);
     if (files.length > 0 && api && isAuthorized) {
+      const count = files.length;
+      setDropFeedback(`已添加 ${count} 个文件到上传队列`);
       api.syncUpload(files);
+      setTimeout(() => setDropFeedback(null), 2000);
     }
   }, [api, isAuthorized]);
 
@@ -58,15 +62,15 @@ export const DropZone: React.FC = () => {
       style={{
         minHeight: 'var(--dropzone-min-height)',
         padding: 'var(--dropzone-padding)',
-        border: `${'var(--dropzone-border-width)'} dashed ${isDragging ? 'var(--accent-primary)' : 'var(--border-default)'}`,
+        border: `${'var(--dropzone-border-width)'} dashed ${isDragging ? 'var(--accent-primary)' : dropFeedback ? 'var(--status-success)' : 'var(--border-default)'}`,
         borderRadius: 'var(--radius-lg)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         gap: 'var(--space-3)',
-        background: isDragging ? 'var(--accent-primary-muted)' : 'var(--bg-secondary)',
-        transition: `all var(--duration-normal) var(--ease-default)`,
+        background: isDragging ? 'var(--accent-primary-muted)' : dropFeedback ? 'var(--bg-success-muted)' : 'var(--bg-secondary)',
+        transition: `all var(--duration-fast) var(--ease-default)`,
         color: 'var(--text-secondary)',
         fontSize: 'var(--text-base)',
         cursor: 'default',
@@ -76,6 +80,10 @@ export const DropZone: React.FC = () => {
       {!isAuthorized ? (
         <p style={{ color: 'var(--status-warning)', fontWeight: 'var(--font-medium)' }}>
           请先在设置中授权百度网盘
+        </p>
+      ) : dropFeedback ? (
+        <p style={{ color: 'var(--status-success)', fontSize: 'var(--text-base)', fontWeight: 'var(--font-semibold)' }}>
+          {dropFeedback}
         </p>
       ) : isDragging ? (
         <p style={{ color: 'var(--accent-primary)', fontSize: 'var(--text-lg)', fontWeight: 'var(--font-semibold)' }}>

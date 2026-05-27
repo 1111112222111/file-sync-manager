@@ -65,19 +65,16 @@ export class BaiduPanAdapter implements ICloudAdapter {
     onProgress?: ProgressCallback,
   ): Promise<UploadResult> {
     try {
-      const fileName = this.getFileName(remotePath);
       const fileSize = fs.statSync(localPath).size;
 
-      // 步骤 1：预创建上传任务
-      const precreateUrl = this.url('/rest/2.0/xpan/file', {
-        method: 'precreate',
-      });
-
+      // 步骤 1：预创建
+      const precreateUrl = this.url('/rest/2.0/xpan/file', { method: 'precreate' });
       const precreateBody = new URLSearchParams({
         path: remotePath,
         size: String(fileSize),
         isdir: '0',
-        rtype: '3', // 覆盖模式
+        rtype: '3',
+        block_list: '["5910a591dd8fc18c32a8f3e4d39986a2"]',
       });
 
       const precreateRes = await this.http(precreateUrl, {
@@ -85,68 +82,75 @@ export class BaiduPanAdapter implements ICloudAdapter {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: precreateBody.toString(),
       });
-
       const precreateData = await precreateRes.json();
 
-      if (!precreateRes.ok || precreateData.error) {
-        return {
-          success: false,
-          remotePath,
-          size: 0,
-          error: precreateData.error || `HTTP ${precreateRes.status}`,
-        };
+      if (!precreateRes.ok || precreateData.errno !== 0) {
+        return { success: false, remotePath, size: 0, error: `预创建失败: ${precreateData.errmsg ?? precreateData.errno}` };
       }
 
       const uploadId = precreateData.uploadid;
 
-      // 步骤 2：分片上传文件内容
+      // 步骤 2：上传文件内容
+      if (onProgress) onProgress(10, 0, 0);
+
       const fileBuffer = fs.readFileSync(localPath);
-      const uploadUrl = this.url('/rest/2.0/xpan/file', {
-        method: 'upload',
-        type: 'tmpfile',
+      const chunkSize = 4 * 1024 * 1024; // 4MB 分片
+      let offset = 0;
+      let seq = 0;
+
+      while (offset < fileBuffer.length) {
+        const chunk = fileBuffer.subarray(offset, offset + chunkSize);
+        const uploadUrl = this.url('/rest/2.0/superfile2', {
+          method: 'upload',
+          type: 'tmpfile',
+          path: remotePath,
+          uploadid: uploadId,
+          partseq: String(seq),
+        });
+
+        const uploadRes = await this.http(uploadUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: new Uint8Array(chunk),
+        });
+
+        if (!uploadRes.ok) {
+          return { success: false, remotePath, size: 0, error: `上传分片失败 seq=${seq}` };
+        }
+
+        offset += chunk.length;
+        seq++;
+        if (onProgress) {
+          onProgress(10 + Math.floor((offset / fileBuffer.length) * 70), 0, 0);
+        }
+      }
+
+      // 步骤 3：创建文件（合并分片）
+      const createUrl = this.url('/rest/2.0/xpan/file', { method: 'create' });
+      const createBody = new URLSearchParams({
         path: remotePath,
+        size: String(fileSize),
+        isdir: '0',
         uploadid: uploadId,
+        rtype: '3',
       });
 
-      const uploadRes = await this.http(uploadUrl, {
+      const createRes = await this.http(createUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'Content-Length': String(fileBuffer.length),
-        },
-        body: new Uint8Array(fileBuffer),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: createBody.toString(),
       });
+      const createData = await createRes.json();
 
-      // 报告进度
-      if (onProgress) {
-        onProgress(50, fileSize / 2, 1); // 简化：上传阶段报告 50%
-        onProgress(100, 0, 0);           // 完成
+      if (!createRes.ok || createData.errno !== 0) {
+        return { success: false, remotePath, size: 0, error: `创建文件失败: ${createData.errmsg ?? createData.errno}` };
       }
 
-      const uploadData = await uploadRes.json();
+      if (onProgress) onProgress(100, 0, 0);
 
-      if (!uploadRes.ok) {
-        return {
-          success: false,
-          remotePath,
-          size: 0,
-          error: '上传文件内容失败',
-        };
-      }
-
-      // 步骤 3：创建文件（暂简化：预创建已设置 rtype=3 覆盖，不需要再调 create）
-      return {
-        success: true,
-        remotePath,
-        size: uploadData.size ?? fileSize,
-      };
+      return { success: true, remotePath, size: createData.size ?? fileSize };
     } catch (err: any) {
-      return {
-        success: false,
-        remotePath,
-        size: 0,
-        error: err.message ?? '上传异常',
-      };
+      return { success: false, remotePath, size: 0, error: err.message ?? '上传异常' };
     }
   }
 
@@ -316,6 +320,24 @@ export class BaiduPanAdapter implements ICloudAdapter {
       mtime: Number(item.server_mtime ?? 0),
       isDir: item.isdir === 1,
     };
+  }
+
+  // ─── getUserInfo ─────────────────────────────────────────
+
+  async getUserInfo(): Promise<{ name: string; avatar: string } | null> {
+    try {
+      const res = await this.http(this.url('/rest/2.0/xpan/nas', { method: 'uinfo' }));
+      const data = await res.json();
+      if (data.errno === 0) {
+        return {
+          name: data.baidu_name ?? data.netdisk_name ?? '未知用户',
+          avatar: data.avatar_url ?? '',
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   // ─── getQuota ────────────────────────────────────────────

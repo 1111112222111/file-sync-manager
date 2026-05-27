@@ -118,7 +118,13 @@ export function registerIPCHandlers(deps: IPCRegistryDeps, mainWindow: BrowserWi
 
   // —— 授权 ——
   ipcMain.handle('auth:getStatus', () => {
-    return authManager.getStatus();
+    const status = authManager.getStatus();
+    const cfg = configStore.getAll();
+    return {
+      ...status,
+      userName: cfg.baiduUser?.name ?? null,
+      avatarUrl: cfg.baiduUser?.avatar ?? null,
+    };
   });
 
   ipcMain.handle('auth:startOAuth', async () => {
@@ -128,6 +134,13 @@ export function registerIPCHandlers(deps: IPCRegistryDeps, mainWindow: BrowserWi
       if (token) {
         configStore.set('baiduToken', token);
         cloudAdapter.setAccessToken(token.accessToken);
+        // 获取用户信息
+        try {
+          const userInfo = await cloudAdapter.getUserInfo();
+          if (userInfo) {
+            configStore.set('baiduUser', userInfo);
+          }
+        } catch { /* 用户信息获取失败不影响授权 */ }
       }
     }
     return result;
