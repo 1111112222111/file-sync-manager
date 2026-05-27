@@ -24,10 +24,17 @@ let trayManager: TrayManager | null = null;
 let isQuitting = false;
 
 function loadEnv(): void {
-  const envPath = path.resolve(app.getAppPath(), '.env');
-  if (fs.existsSync(envPath)) { parseEnvFile(envPath); return; }
-  const altPath = path.resolve(path.dirname(app.getAppPath()), '.env');
-  if (fs.existsSync(altPath)) parseEnvFile(altPath);
+  if (app.isPackaged) {
+    // 打包模式：从 resources 目录读取（extraResources 放置于此）
+    const prodPath = path.join(process.resourcesPath, '.env');
+    if (fs.existsSync(prodPath)) { parseEnvFile(prodPath); return; }
+  } else {
+    // 开发模式：从项目根目录读取
+    const devPath = path.resolve(app.getAppPath(), '.env');
+    if (fs.existsSync(devPath)) { parseEnvFile(devPath); return; }
+    const altPath = path.resolve(path.dirname(app.getAppPath()), '.env');
+    if (fs.existsSync(altPath)) { parseEnvFile(altPath); return; }
+  }
 }
 
 function parseEnvFile(filePath: string): void {
