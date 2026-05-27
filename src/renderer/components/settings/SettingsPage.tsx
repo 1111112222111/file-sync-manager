@@ -4,7 +4,7 @@ import { useElectronAPI } from '../../hooks/useIpc';
 import { Button } from '../common/Button';
 import { Input } from '../common/Input';
 import { ToggleSwitch } from '../common/ToggleSwitch';
-import type { AppConfig, AuthStatus } from '../../../shared/types';
+import type { AppConfig, AuthStatus, FileInfo } from '../../../shared/types';
 
 export const SettingsPage: React.FC = () => {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -13,6 +13,9 @@ export const SettingsPage: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
   const [newFilterPattern, setNewFilterPattern] = useState('');
+  const [editingPath, setEditingPath] = useState('');
+  const [dirSuggestions, setDirSuggestions] = useState<FileInfo[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const api = useElectronAPI();
 
   const loadConfig = useCallback(async () => {
@@ -33,10 +36,26 @@ export const SettingsPage: React.FC = () => {
 
   useEffect(() => { loadConfig(); }, [loadConfig]);
 
+  // 加载云端已有目录作为建议
+  useEffect(() => {
+    if (!api || !config || !authStatus?.isAuthorized) return;
+    api.cloudListFiles('/').then((list) => {
+      setDirSuggestions(list.filter((f: FileInfo) => f.isDir));
+    }).catch(() => {});
+  }, [api, config, authStatus?.isAuthorized]);
+
   const handleSetNotification = async (level: string) => {
     if (!api) return;
     await api.configSet('notificationLevel', level);
     setConfig((prev) => prev ? { ...prev, notificationLevel: level as any } : prev);
+  };
+
+  const handleSavePath = async () => {
+    if (!api || !editingPath.trim()) return;
+    await api.configSet('remoteRootPath', editingPath.trim());
+    setConfig((prev) => prev ? { ...prev, remoteRootPath: editingPath.trim() } : prev);
+    setMessage('路径已更新！');
+    setTimeout(() => setMessage(null), 2000);
   };
 
   const handleAddFilter = async () => {
@@ -122,6 +141,99 @@ export const SettingsPage: React.FC = () => {
               </Button>
           }
         </div>
+      </Section>
+
+      {/* 上传目录 */}
+      <Section title="远程上传目录">
+        <div style={{ position: 'relative' }}>
+          <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center' }}>
+            <input
+              value={editingPath || config.remoteRootPath}
+              onChange={(e) => { setEditingPath(e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              placeholder="/我的同步文件"
+              style={{
+                flex: 1,
+                height: 'var(--btn-height-sm)',
+                padding: '0 var(--input-padding-x)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-default)',
+                borderRadius: 'var(--radius-md)',
+                color: 'var(--text-primary)',
+                fontSize: 'var(--text-sm)',
+                outline: 'none',
+                transition: 'var(--input-transition)',
+                boxSizing: 'border-box',
+              }}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleSavePath}
+              disabled={!editingPath.trim() || editingPath.trim() === config.remoteRootPath}
+            >
+              保存
+            </Button>
+          </div>
+
+          {/* 已有目录建议下拉 */}
+          {showSuggestions && dirSuggestions.length > 0 && (
+            <div style={{
+              position: 'absolute', top: '100%', left: 0, right: 56, zIndex: 10,
+              maxHeight: 140, overflow: 'auto',
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border-default)',
+              borderRadius: 'var(--radius-md)',
+              marginTop: 2,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+            }}>
+              {/* 新建目录选项 */}
+              {editingPath.trim() && !dirSuggestions.some((d) => d.path === editingPath.trim()) && (
+                <div
+                  onMouseDown={() => { setEditingPath(editingPath.trim()); setShowSuggestions(false); }}
+                  style={{
+                    padding: 'var(--space-2) var(--space-3)',
+                    cursor: 'pointer',
+                    color: 'var(--accent-primary)',
+                    fontSize: 'var(--text-sm)',
+                    borderBottom: '1px solid var(--border-subtle)',
+                  }}
+                >
+                  新建目录: {editingPath.trim()}
+                </div>
+              )}
+              {dirSuggestions.map((dir) => (
+                <div
+                  key={dir.path}
+                  onMouseDown={() => { setEditingPath(dir.path); setShowSuggestions(false); }}
+                  style={{
+                    padding: 'var(--space-2) var(--space-3)',
+                    cursor: 'pointer',
+                    color: 'var(--text-primary)',
+                    fontSize: 'var(--text-sm)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-2)',
+                  }}
+                  onMouseEnter={(e) => { (e.target as HTMLElement).style.background = 'var(--bg-secondary)'; }}
+                  onMouseLeave={(e) => { (e.target as HTMLElement).style.background = 'transparent'; }}
+                >
+                  <span style={{ opacity: 0.6, fontSize: 14 }}>{'\u{1F4C1}'}</span>
+                  <span style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    flex: 1,
+                  }}>{dir.path}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <p style={{ color: 'var(--text-tertiary)', fontSize: 'var(--text-xs)', marginTop: 'var(--space-1)' }}>
+          文件将上传到百度网盘中的此目录
+        </p>
       </Section>
 
       {/* 开机自启 */}

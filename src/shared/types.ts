@@ -11,6 +11,7 @@ export interface FileInfo {
   size: number;       // 字节
   mtime: number;      // 最后修改时间 Unix timestamp
   isDir: boolean;
+  fsId: number;       // 百度网盘文件 ID（用于下载/删除操作）
 }
 
 /** 上传结果 */

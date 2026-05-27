@@ -43,17 +43,25 @@ export function registerIPCHandlers(deps: IPCRegistryDeps, mainWindow: BrowserWi
 
   ipcMain.handle('sync:pauseTask', (_event, taskId: string) => {
     transferQueue.pauseTask(taskId);
+    const updated = transferQueue.getAllTasks().find((t) => t.id === taskId);
+    if (updated) mainWindow.webContents.send('transfer:updated', updated);
   });
 
   ipcMain.handle('sync:cancelTask', (_event, taskId: string) => {
     transferQueue.cancelTask(taskId);
+    mainWindow.webContents.send('transfer:taskRemoved', taskId);
   });
 
   ipcMain.handle('sync:retryTask', (_event, taskId: string) => {
     transferQueue.retryTask(taskId);
+    const updated = transferQueue.getAllTasks().find((t) => t.id === taskId);
+    if (updated) mainWindow.webContents.send('transfer:updated', updated);
   });
 
   // —— 传输进度推送到渲染进程 ——
+  transferQueue.onTaskAdded = (task) => {
+    mainWindow.webContents.send('transfer:taskAdded', task);
+  };
   transferQueue.onProgress = (task) => {
     mainWindow.webContents.send('transfer:progress', task);
   };
@@ -158,6 +166,9 @@ export function registerIPCHandlers(deps: IPCRegistryDeps, mainWindow: BrowserWi
 
   ipcMain.handle('config:set', (_event, key: string, value: any) => {
     configStore.set(key, value);
+    if (key === 'remoteRootPath' && typeof value === 'string') {
+      syncEngine.setRemoteRootPath(value);
+    }
   });
 
   ipcMain.handle('config:addFilterRule', (_event, pattern: string) => {

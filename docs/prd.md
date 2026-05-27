@@ -1,4 +1,18 @@
-# PRD: 文件自动同步管理器 v1
+# PRD: 文件自动同步管理器 v1.0.0
+
+## 当前状态
+
+- **版本**: v1.0.0
+- **平台**: Windows（NSIS 安装包）
+- **打包大小**: ~83.5 MB
+- **发布日期**: 2026-05-27
+
+## UI 设计
+
+- **便签风格**: 420×560 px 无边框窗口，圆角 8px，紧凑型布局
+- **自定义标题栏**: 32px 高度，拖拽区域 + 主题切换按钮 + 最小化/关闭按钮
+- **四标签导航**: 传输 | 云端 | 监听 | 设置
+- **深浅主题**: 通过 CSS Variables 切换，默认深色"
 
 ## 问题陈述
 
@@ -70,13 +84,14 @@
 ## 实现决策
 
 ### 技术栈
-- **框架**: Electron + React + TypeScript
-- **构建**: Vite + electron-builder（打包 Windows NSIS 安装包）
-- **UI 样式**: CSS Variables 实现深浅主题切换
+- **框架**: Electron 30 + React 18 + TypeScript 5.4
+- **构建**: Vite 5.2 + electron-builder（打包 Windows NSIS 安装包）
+- **UI 样式**: CSS Variables 实现深浅主题切换，无第三方 UI 库
 - **文件监听**: chokidar（Node.js 最成熟的文件监听库）
-- **本地存储**: electron-store（加密存储配置和 Token）+ better-sqlite3（传输记录）
+- **本地存储**: 内存 ConfigStore（后续替换为 electron-store 加密存储）+ better-sqlite3（传输记录）
 - **开机自启**: electron-auto-launch
-- **网盘 API**: 百度网盘 Open API（RESTful，OAuth 2.0 授权）
+- **网盘 API**: 百度网盘 Open API /xpan（RESTful，OAuth 2.0 授权）
+- **环境变量**: .env 文件通过 extraResources 打包到安装目录
 
 ### 模块架构
 
@@ -138,12 +153,15 @@ AppConfig:
 
 ### 核心交互细节
 
-- **拖拽区域**: 未授权时显示"请先授权百度网盘"引导；已授权时显示拖拽提示"拖拽文件到此处上传"，有视觉高亮反馈。
-- **进度展示**: 每个任务独立行，显示文件名、进度条、百分比、速度（MB/s）、预估剩余时间。状态颜色：进行中=蓝色，完成=绿色，失败=红色，暂停=灰色。
-- **冲突弹窗**: 模态弹窗，展示本地和云端文件的名称、大小、修改时间对比，三个操作按钮对应三种选择。
-- **托盘图标**: 同步中=动态旋转动画，空闲=静态图标，错误=红色感叹角标。
-- **窗口关闭**: 点击 X → 最小化到托盘 + 显示提示"应用已最小化到系统托盘"。右键托盘图标 → 退出 → 彻底关闭。
-- **云端浏览**: 表格列 = 文件名 + 大小 + 修改时间；每行有下载按钮；点击下载 → 弹出保存路径选择对话框 → 加入传输队列。
+- **百度网盘上传**: 使用 `POST /rest/2.0/xpan/file?method=upload` 端点，multipart/form-data 格式传输文件体。覆盖策略为 `ondup=overwrite`。
+- **百度网盘下载**: 先通过 `listFiles` 获取父目录文件列表拿到 `fs_id`，再用 `filemetas` API + `fsids` 参数获取 `dlink` 下载链接，下载时补齐 `access_token` 并设置 `User-Agent: pan.baidu.com` 头。
+- **百度网盘删除**: 使用 `POST /rest/2.0/xpan/file?method=filemanager&opera=delete`，`filelist` 参数传 JSON 路径数组。
+- **实时进度推送**: 主进程通过 IPC 事件 `transfer:taskAdded` / `transfer:progress` / `transfer:completed` / `transfer:failed` / `transfer:updated` / `transfer:taskRemoved` 推送任务状态到渲染进程，UI 实时响应无需手动刷新。
+- **拖拽区域**: 未授权时显示"请先在设置中授权百度网盘"引导；已授权时拖入文件显示"释放鼠标以上传文件"，松手后显示"已添加 N 个文件到上传队列"反馈（2 秒自动消失）。
+- **传输面板**: 分为"进行中"和"已完成"两个区域，已完成区域可折叠，支持一键清除已完成任务。
+- **云端浏览**: 卡片列表布局（适配 420px 窄窗口），每行显示文件图标 + 文件名（最多 2 行溢出省略）+ 大小/时间副行 + 下载/删除按钮。下载通过系统"保存文件"对话框选择本地路径。
+- **设置页**: 远程上传目录支持输入/修改，并显示百度网盘根目录下已有文件夹作为下拉建议。过滤规则支持通配符模式（如 `*.tmp`、`node_modules`）。
+- **托盘图标**: 静态默认图标，右键菜单提供：显示/隐藏窗口、退出。
 
 ## 测试决策
 

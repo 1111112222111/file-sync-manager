@@ -110,6 +110,19 @@ export const TaskRow: React.FC<TaskRowProps> = ({ task, onPause, onCancel, onRet
         </div>
       )}
 
+      {task.status === 'failed' && task.error && (
+        <p style={{
+          color: 'var(--status-error)',
+          fontSize: 'var(--text-xs)',
+          margin: 0,
+          padding: 'var(--space-1) var(--space-2)',
+          background: 'var(--bg-error-muted, rgba(255,68,68,0.08))',
+          borderRadius: 'var(--radius-sm)',
+          wordBreak: 'break-all',
+        }}>
+          {task.error}
+        </p>
+      )}
       {(task.status === 'failed' || task.status === 'paused') && (
         <div style={{ display: 'flex', gap: 'var(--space-2)', justifyContent: 'flex-end' }}>
           {task.status === 'failed' && (

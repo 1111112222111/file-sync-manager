@@ -29,6 +29,8 @@ export class TransferQueue {
   private activeCount = 0;
   private destroyed = false;
 
+  /** 外部监听器：新任务入队 */
+  public onTaskAdded?: (task: TransferTask) => void;
   /** 外部监听器：进度更新 */
   public onProgress?: (task: TransferTask) => void;
   /** 外部监听器：任务完成 */
@@ -61,6 +63,7 @@ export class TransferQueue {
     };
 
     this.tasks.set(id, task);
+    this.onTaskAdded?.(task);
 
     // 调度执行
     this.scheduleNext();

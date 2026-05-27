@@ -8,7 +8,7 @@
 import type {
   TransferTask, FileInfo, QuotaInfo, WatchSource, WatchStatus,
   AuthStatus, AppConfig, FilterRule, ConflictInfo, ConflictChoice,
-  TransferRecord, HistoryQuery,
+  TransferRecord, HistoryQuery, DeleteResult,
 } from '../../shared/types';
 
 /** contextBridge 暴露给渲染进程的 API */
@@ -24,7 +24,7 @@ export interface ElectronAPI {
   // Cloud
   cloudListFiles(remoteDir: string): Promise<FileInfo[]>;
   cloudGetQuota(): Promise<QuotaInfo>;
-  cloudDeleteFile(remotePath: string): Promise<void>;
+  cloudDeleteFile(remotePath: string): Promise<DeleteResult>;
 
   // Watcher
   watcherGetSources(): Promise<WatchSource[]>;

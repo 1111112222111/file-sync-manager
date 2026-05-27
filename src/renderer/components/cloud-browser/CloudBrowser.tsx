@@ -13,24 +13,38 @@ function formatSize(bytes: number): string {
 
 function formatTime(ts: number): string {
   const d = new Date(ts * 1000);
-  return d.toLocaleString('zh-CN');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${month}-${day} ${hours}:${mins}`;
 }
 
 export const CloudBrowser: React.FC = () => {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [loading, setLoading] = useState(false);
+  const [remoteRoot, setRemoteRoot] = useState('/我的同步文件');
+  const [downloading, setDownloading] = useState<string | null>(null);
   const api = useElectronAPI();
 
   const loadFiles = useCallback(async () => {
     if (!api) return;
     setLoading(true);
     try {
-      const list = await api.cloudListFiles('/apps/我的同步文件');
+      const list = await api.cloudListFiles(remoteRoot);
       setFiles(list);
     } catch {
       // ignore
     } finally {
       setLoading(false);
+    }
+  }, [api, remoteRoot]);
+
+  useEffect(() => {
+    if (api) {
+      api.configGetAll().then((cfg) => {
+        setRemoteRoot(cfg.remoteRootPath ?? '/我的同步文件');
+      });
     }
   }, [api]);
 
@@ -38,15 +52,25 @@ export const CloudBrowser: React.FC = () => {
 
   const handleDownload = async (file: FileInfo) => {
     if (!api) return;
-    const savePath = `/downloads/${file.name}`; // 简化：生产环境用对话框
-    await api.syncDownload(file.path, savePath);
+    setDownloading(file.path);
+    try {
+      const savePath = await api.dialogSaveFile(file.name);
+      if (!savePath) { setDownloading(null); return; }
+      await api.syncDownload(file.path, savePath);
+    } catch {
+      // ignore
+    } finally {
+      setDownloading(null);
+    }
   };
 
   const handleDelete = async (file: FileInfo) => {
     if (!api) return;
     try {
-      await api.cloudDeleteFile(file.path);
-      setFiles((prev) => prev.filter((f) => f.path !== file.path));
+      const result = await api.cloudDeleteFile(file.path);
+      if (result.success) {
+        setFiles((prev) => prev.filter((f) => f.path !== file.path));
+      }
     } catch {
       // ignore
     }
@@ -63,69 +87,78 @@ export const CloudBrowser: React.FC = () => {
         </Button>
       </div>
 
-      <div
-        style={{
-          background: 'var(--bg-elevated)',
-          borderRadius: 'var(--card-radius)',
-          border: '1px solid var(--border-subtle)',
-          overflow: 'auto',
-        }}
-      >
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-              <th style={thStyle}>文件名</th>
-              <th style={thStyle}>大小</th>
-              <th style={thStyle}>修改时间</th>
-              <th style={thStyle}>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {files.length === 0 ? (
-              <tr>
-                <td colSpan={4} style={{ padding: 'var(--space-8)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
-                  {loading ? '加载中...' : '暂无文件'}
-                </td>
-              </tr>
-            ) : (
-              files.map((f) => (
-                <tr
-                  key={f.path}
-                  style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                >
-                  <td style={tdStyle}>{f.isDir ? `[目录] ${f.name}` : f.name}</td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)' }}>{f.isDir ? '-' : formatSize(f.size)}</td>
-                  <td style={{ ...tdStyle, color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{formatTime(f.mtime)}</td>
-                  <td style={tdStyle}>
-                    <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-                      {!f.isDir && (
-                        <Button size="sm" variant="secondary" onClick={() => handleDownload(f)}>下载</Button>
-                      )}
-                      <Button size="sm" variant="ghost" onClick={() => handleDelete(f)}>删除</Button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {files.length === 0 ? (
+        <p style={{ color: 'var(--text-tertiary)', padding: 'var(--space-8) 0', textAlign: 'center' }}>
+          {loading ? '加载中...' : '暂无文件'}
+        </p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {files.map((f) => (
+            <div
+              key={f.path}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                padding: 'var(--space-2) var(--space-3)',
+                background: 'var(--bg-elevated)',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              {/* 文件图标 */}
+              <span style={{
+                fontSize: 16, flexShrink: 0, opacity: 0.7,
+                lineHeight: 1,
+              }}>
+                {f.isDir ? '\u{1F4C1}' : '\u{1F4C4}'}
+              </span>
+
+              {/* 文件名 + 元信息 */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  color: 'var(--text-primary)',
+                  fontSize: 'var(--text-sm)',
+                  fontWeight: 'var(--font-medium)',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  wordBreak: 'break-all',
+                  lineHeight: 1.35,
+                }} title={f.name}>
+                  {f.name}
+                </div>
+                <div style={{
+                  color: 'var(--text-tertiary)',
+                  fontSize: 'var(--text-xs)',
+                  marginTop: 2,
+                  display: 'flex',
+                  gap: 'var(--space-2)',
+                }}>
+                  <span>{f.isDir ? '-' : formatSize(f.size)}</span>
+                  <span>{formatTime(f.mtime)}</span>
+                </div>
+              </div>
+
+              {/* 操作按钮 */}
+              <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                {!f.isDir && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => handleDownload(f)}
+                    disabled={downloading === f.path}
+                  >
+                    {downloading === f.path ? '...' : '下载'}
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => handleDelete(f)}>删除</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
-};
-
-const thStyle: React.CSSProperties = {
-  padding: 'var(--space-2) var(--table-cell-padding-x)',
-  textAlign: 'left',
-  fontSize: 'var(--text-sm)',
-  fontWeight: 'var(--font-semibold)',
-  color: 'var(--text-secondary)',
-  height: 'var(--table-header-height)',
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: 'var(--space-2) var(--table-cell-padding-x)',
-  fontSize: 'var(--text-base)',
-  color: 'var(--text-primary)',
-  height: 'var(--table-row-height)',
 };

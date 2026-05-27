@@ -66,89 +66,55 @@ export class BaiduPanAdapter implements ICloudAdapter {
   ): Promise<UploadResult> {
     try {
       const fileSize = fs.statSync(localPath).size;
-
-      // 步骤 1：预创建
-      const precreateUrl = this.url('/rest/2.0/xpan/file', { method: 'precreate' });
-      const precreateBody = new URLSearchParams({
-        path: remotePath,
-        size: String(fileSize),
-        isdir: '0',
-        rtype: '3',
-        block_list: '["5910a591dd8fc18c32a8f3e4d39986a2"]',
-      });
-
-      const precreateRes = await this.http(precreateUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: precreateBody.toString(),
-      });
-      const precreateData = await precreateRes.json();
-
-      if (!precreateRes.ok || precreateData.errno !== 0) {
-        return { success: false, remotePath, size: 0, error: `预创建失败: ${precreateData.errmsg ?? precreateData.errno}` };
-      }
-
-      const uploadId = precreateData.uploadid;
-
-      // 步骤 2：上传文件内容
-      if (onProgress) onProgress(10, 0, 0);
-
       const fileBuffer = fs.readFileSync(localPath);
-      const chunkSize = 4 * 1024 * 1024; // 4MB 分片
-      let offset = 0;
-      let seq = 0;
 
-      while (offset < fileBuffer.length) {
-        const chunk = fileBuffer.subarray(offset, offset + chunkSize);
-        const uploadUrl = this.url('/rest/2.0/superfile2', {
-          method: 'upload',
-          type: 'tmpfile',
-          path: remotePath,
-          uploadid: uploadId,
-          partseq: String(seq),
-        });
+      if (onProgress) onProgress(30, 0, 0);
 
-        const uploadRes = await this.http(uploadUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/octet-stream' },
-          body: new Uint8Array(chunk),
-        });
+      // 简单上传：method=upload，body 为 multipart/form-data
+      const boundary = `----BaiduPanUpload${Date.now()}${Math.random().toString(36).slice(2)}`;
+      const crlf = '\r\n';
+      const header = [
+        `--${boundary}`,
+        `Content-Disposition: form-data; name="file"; filename="${encodeURIComponent(this.getFileName(remotePath))}"`,
+        `Content-Type: application/octet-stream`,
+        '',
+        '',
+      ].join(crlf);
+      const footer = `${crlf}--${boundary}--`;
+      const headerBytes = Buffer.from(header, 'utf-8');
+      const footerBytes = Buffer.from(footer, 'utf-8');
+      const body = Buffer.concat([headerBytes, fileBuffer, footerBytes]);
 
-        if (!uploadRes.ok) {
-          return { success: false, remotePath, size: 0, error: `上传分片失败 seq=${seq}` };
-        }
-
-        offset += chunk.length;
-        seq++;
-        if (onProgress) {
-          onProgress(10 + Math.floor((offset / fileBuffer.length) * 70), 0, 0);
-        }
-      }
-
-      // 步骤 3：创建文件（合并分片）
-      const createUrl = this.url('/rest/2.0/xpan/file', { method: 'create' });
-      const createBody = new URLSearchParams({
+      const uploadUrl = this.url('/rest/2.0/xpan/file', {
+        method: 'upload',
         path: remotePath,
-        size: String(fileSize),
-        isdir: '0',
-        uploadid: uploadId,
-        rtype: '3',
+        ondup: 'overwrite',
       });
 
-      const createRes = await this.http(createUrl, {
+      const uploadRes = await this.http(uploadUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: createBody.toString(),
+        headers: {
+          'Content-Type': `multipart/form-data; boundary=${boundary}`,
+          'Content-Length': String(body.length),
+        },
+        body: new Uint8Array(body),
       });
-      const createData = await createRes.json();
 
-      if (!createRes.ok || createData.errno !== 0) {
-        return { success: false, remotePath, size: 0, error: `创建文件失败: ${createData.errmsg ?? createData.errno}` };
+      if (onProgress) onProgress(90, 0, 0);
+
+      const uploadData = await uploadRes.json();
+      console.log('[BaiduPan upload] response:', JSON.stringify(uploadData));
+
+      const errno = uploadData.errno ?? uploadData.error_code ?? 0;
+      if (!uploadRes.ok || errno !== 0) {
+        const errMsg = uploadData.errmsg ?? uploadData.error_msg ?? uploadData.error ?? `errno=${errno}`;
+        console.error('[BaiduPan upload] failed:', errMsg, '| full:', JSON.stringify(uploadData));
+        return { success: false, remotePath, size: 0, error: `上传失败: ${errMsg}` };
       }
 
       if (onProgress) onProgress(100, 0, 0);
 
-      return { success: true, remotePath, size: createData.size ?? fileSize };
+      return { success: true, remotePath, size: uploadData.size ?? fileSize };
     } catch (err: any) {
       return { success: false, remotePath, size: 0, error: err.message ?? '上传异常' };
     }
@@ -162,10 +128,20 @@ export class BaiduPanAdapter implements ICloudAdapter {
     onProgress?: ProgressCallback,
   ): Promise<DownloadResult> {
     try {
-      // 步骤 1：获取文件元信息
+      // 步骤 1：列出父目录找到目标文件，获取 fs_id
+      const remoteParentDir = remotePath.substring(0, remotePath.lastIndexOf('/')) || '/';
+      const fileName = this.getFileName(remotePath);
+      const dirFiles = await this.listFiles(remoteParentDir);
+      const targetFile = dirFiles.find((f) => f.name === fileName);
+
+      if (!targetFile || targetFile.fsId === 0) {
+        return { success: false, localPath, size: 0, error: '远程文件不存在' };
+      }
+
+      // 步骤 2：使用 fsids 获取下载链接
       const metaUrl = this.url('/rest/2.0/xpan/multimedia', {
         method: 'filemetas',
-        path: remotePath,
+        fsids: JSON.stringify([targetFile.fsId]),
         dlink: '1',
       });
 
@@ -173,12 +149,7 @@ export class BaiduPanAdapter implements ICloudAdapter {
       const metaData = await metaRes.json();
 
       if (!metaRes.ok || !metaData.list || metaData.list.length === 0) {
-        return {
-          success: false,
-          localPath,
-          size: 0,
-          error: '远程文件不存在',
-        };
+        return { success: false, localPath, size: 0, error: '远程文件不存在' };
       }
 
       const fileMeta = metaData.list[0];
@@ -193,9 +164,21 @@ export class BaiduPanAdapter implements ICloudAdapter {
         };
       }
 
-      // 步骤 2：下载文件内容
-      const dlRes = await this.http(downloadUrl);
+      // 步骤 3：下载文件内容
+      // 百度 dlink 有时缺少 token 或需要特定 header，补全 token 并设置 UA+Referer
+      const dlUrl = new URL(downloadUrl);
+      if (!dlUrl.searchParams.has('access_token')) {
+        dlUrl.searchParams.set('access_token', this.accessToken);
+      }
+      console.log('[BaiduPan download] dlink:', dlUrl.toString().replace(/access_token=[^&]+/, 'access_token=***'));
+
+      const dlRes = await this.http(dlUrl.toString(), {
+        headers: {
+          'User-Agent': 'pan.baidu.com',
+        },
+      });
       if (!dlRes.ok) {
+        console.error('[BaiduPan download] failed HTTP', dlRes.status);
         return {
           success: false,
           localPath,
@@ -257,6 +240,7 @@ export class BaiduPanAdapter implements ICloudAdapter {
         size: Number(item.size ?? 0),
         mtime: Number(item.server_mtime ?? 0),
         isDir: item.isdir === 1,
+        fsId: Number(item.fs_id ?? 0),
       }));
     } catch {
       return [];
@@ -275,7 +259,6 @@ export class BaiduPanAdapter implements ICloudAdapter {
       const body = new URLSearchParams({
         async: '0',
         filelist: JSON.stringify([remotePath]),
-        ondup: 'fail',
       });
 
       const res = await this.http(deleteUrl, {
@@ -284,9 +267,13 @@ export class BaiduPanAdapter implements ICloudAdapter {
         body: body.toString(),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        return { success: false, error: data.error || '删除失败' };
+      const data = await res.json();
+      console.log('[BaiduPan delete] response:', JSON.stringify(data));
+
+      const errno = data.errno ?? 0;
+      if (!res.ok || errno !== 0) {
+        const errMsg = data.error ?? data.errmsg ?? `errno=${errno}`;
+        return { success: false, error: errMsg };
       }
 
       return { success: true };
@@ -298,9 +285,16 @@ export class BaiduPanAdapter implements ICloudAdapter {
   // ─── getFileInfo ─────────────────────────────────────────
 
   async getFileInfo(remotePath: string): Promise<FileInfo> {
+    // 先通过父目录列表获取 fs_id
+    const parentDir = remotePath.substring(0, remotePath.lastIndexOf('/')) || '/';
+    const fileName = this.getFileName(remotePath);
+    const dirFiles = await this.listFiles(parentDir);
+    const target = dirFiles.find((f) => f.name === fileName);
+    const targetFsId = target?.fsId ?? 0;
+
     const metaUrl = this.url('/rest/2.0/xpan/multimedia', {
       method: 'filemetas',
-      path: remotePath,
+      fsids: JSON.stringify(targetFsId > 0 ? [targetFsId] : []),
       dlink: '1',
     });
 
@@ -319,6 +313,7 @@ export class BaiduPanAdapter implements ICloudAdapter {
       size: Number(item.size ?? 0),
       mtime: Number(item.server_mtime ?? 0),
       isDir: item.isdir === 1,
+      fsId: Number(item.fs_id ?? 0),
     };
   }
 
